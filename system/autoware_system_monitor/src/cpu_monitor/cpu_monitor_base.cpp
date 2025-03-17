@@ -68,6 +68,7 @@ CPUMonitorBase::CPUMonitorBase(const std::string & node_name, const rclcpp::Node
   updater_.add("CPU Load Average", this, &CPUMonitorBase::checkLoad);
   updater_.add("CPU Thermal Throttling", this, &CPUMonitorBase::checkThrottling);
   updater_.add("CPU Frequency", this, &CPUMonitorBase::checkFrequency);
+  updater_.setPeriod(2.0);  // Set timer period to 2sec as checkUsage() takes more than 1sec.
 
   // Publisher
   rclcpp::QoS durable_qos{1};
