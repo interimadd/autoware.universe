@@ -239,14 +239,12 @@ void CudaPointcloudPreprocessorNode::pointcloudCallback(
     twist_queue_.emplace_back(*msg);
   }
 
-  if (use_imu_) {
-    std::vector<sensor_msgs::msg::Imu::ConstSharedPtr> imu_msgs = imu_sub_->takeData();
-    for (const auto & msg : imu_msgs) {
-      if (rclcpp::Time(msg->header.stamp).seconds() < first_point_stamp) {
-        continue;
-      }
-      imuCallback(msg);
+  std::vector<sensor_msgs::msg::Imu::ConstSharedPtr> imu_msgs = imu_sub_->takeData();
+  for (const auto & msg : imu_msgs) {
+    if (rclcpp::Time(msg->header.stamp).seconds() < first_point_stamp) {
+      continue;
     }
+    imuCallback(msg);
   }
   /* *INDENT-ON* */
 
