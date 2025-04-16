@@ -20,6 +20,7 @@
 
 #include <autoware/point_types/types.hpp>
 #include <autoware/universe_utils/ros/debug_publisher.hpp>
+#include <autoware/universe_utils/ros/polling_subscriber.hpp>
 #include <autoware/universe_utils/system/stop_watch.hpp>
 #include <cuda_blackboard/cuda_adaptation.hpp>
 #include <cuda_blackboard/cuda_blackboard_publisher.hpp>
@@ -86,8 +87,6 @@ private:
     const sensor_msgs::msg::PointCloud2::ConstSharedPtr input_pointcloud_msg_ptr);
   void cudaPointcloudCallback(
     const std::shared_ptr<const cuda_blackboard::CudaPointCloud2> cuda_msg);
-  void twistCallback(
-    const geometry_msgs::msg::TwistWithCovarianceStamped::ConstSharedPtr pointcloud_msg);
   void imuCallback(const sensor_msgs::msg::Imu::ConstSharedPtr imu_msg);
 
   tf2_ros::Buffer tf2_buffer_;
@@ -98,8 +97,11 @@ private:
   std::deque<geometry_msgs::msg::Vector3Stamped> angular_velocity_queue_;
 
   // Subscribers
-  rclcpp::Subscription<geometry_msgs::msg::TwistWithCovarianceStamped>::SharedPtr twist_sub_{};
   rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_sub_{};
+  autoware::universe_utils::InterProcessPollingSubscriber<
+    geometry_msgs::msg::TwistWithCovarianceStamped,
+    autoware::universe_utils::polling_policy::All
+  >::SharedPtr twist_sub_;
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr pointcloud_sub_{};
 
   // CUDA pub
