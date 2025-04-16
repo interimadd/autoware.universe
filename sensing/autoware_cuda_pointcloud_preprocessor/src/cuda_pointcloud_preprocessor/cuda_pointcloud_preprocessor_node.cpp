@@ -104,19 +104,19 @@ CudaPointcloudPreprocessorNode::CudaPointcloudPreprocessorNode(
     "~/input/pointcloud", rclcpp::SensorDataQoS{}.keep_last(1),
     std::bind(&CudaPointcloudPreprocessorNode::pointcloudCallback, this, std::placeholders::_1),
     sub_options);
-  // twist_sub_ = this->create_subscription<geometry_msgs::msg::TwistWithCovarianceStamped>(
-  //   "~/input/twist", 10,
-  //   std::bind(&CudaPointcloudPreprocessorNode::twistCallback, this, std::placeholders::_1),
-  //   sub_options);
+  
+  // Twist queue size needs to be larger than 'twist frequency' / 'pointcloud frequency'.
+  // To avoid individual tuning, a sufficiently large value is hard-coded.
+  // With 100, it can handle twist updates up to 1000Hz if the pointcloud is 10Hz.
+  const uint16_t TWIST_QUEUE_SIZE = 100;
   twist_sub_ = universe_utils::InterProcessPollingSubscriber<
     geometry_msgs::msg::TwistWithCovarianceStamped, universe_utils::polling_policy::All>::
-    create_subscription(this, "~/input/twist", rclcpp::QoS(100));
+    create_subscription(this, "~/input/twist", rclcpp::QoS(TWIST_QUEUE_SIZE));
 
   if (use_imu) {
-    imu_sub_ = this->create_subscription<sensor_msgs::msg::Imu>(
-      "~/input/imu", 10,
-      std::bind(&CudaPointcloudPreprocessorNode::imuCallback, this, std::placeholders::_1),
-      sub_options);
+    imu_sub_ = universe_utils::InterProcessPollingSubscriber<
+      sensor_msgs::msg::Imu, universe_utils::polling_policy::All>::
+      create_subscription(this, "~/input/imu", rclcpp::QoS(TWIST_QUEUE_SIZE));
   }
 
   /* *INDENT-OFF* */
@@ -239,9 +239,14 @@ void CudaPointcloudPreprocessorNode::pointcloudCallback(
     twist_queue_.emplace_back(*msg);
   }
 
-  while (angular_velocity_queue_.size() > 1 &&
-         rclcpp::Time(angular_velocity_queue_.front().header.stamp).seconds() < first_point_stamp) {
-    angular_velocity_queue_.pop_front();
+  if (use_imu_) {
+    std::vector<sensor_msgs::msg::Imu::ConstSharedPtr> imu_msgs = imu_sub_->takeData();
+    for (const auto & msg : imu_msgs) {
+      if (rclcpp::Time(msg->header.stamp).seconds() < first_point_stamp) {
+        continue;
+      }
+      imuCallback(msg);
+    }
   }
   /* *INDENT-ON* */
 

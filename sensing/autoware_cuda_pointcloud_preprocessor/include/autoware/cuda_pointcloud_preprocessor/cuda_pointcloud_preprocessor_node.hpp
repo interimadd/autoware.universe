@@ -97,7 +97,10 @@ private:
   std::deque<geometry_msgs::msg::Vector3Stamped> angular_velocity_queue_;
 
   // Subscribers
-  rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_sub_{};
+  autoware::universe_utils::InterProcessPollingSubscriber<
+    sensor_msgs::msg::Imu,
+    autoware::universe_utils::polling_policy::All
+  >::SharedPtr imu_sub_;
   autoware::universe_utils::InterProcessPollingSubscriber<
     geometry_msgs::msg::TwistWithCovarianceStamped,
     autoware::universe_utils::polling_policy::All
