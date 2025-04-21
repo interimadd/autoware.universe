@@ -254,9 +254,8 @@ void CudaPointcloudPreprocessorNode::pointcloudCallback(
                              input_pointcloud_msg_ptr->header.stamp.nanosec * 1e-9 +
                              first_point_rel_stamp * 1e-9;
 
-  std::vector<
-    geometry_msgs::msg::TwistWithCovarianceStamped::ConstSharedPtr
-  > twist_msgs = twist_sub_->takeData();
+  std::vector<geometry_msgs::msg::TwistWithCovarianceStamped::ConstSharedPtr> twist_msgs =
+    twist_sub_->takeData();
   for (const auto & msg : twist_msgs) {
     twistCallback(msg);
   }
