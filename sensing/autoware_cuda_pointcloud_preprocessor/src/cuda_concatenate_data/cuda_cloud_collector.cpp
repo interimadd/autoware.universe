@@ -1,4 +1,4 @@
-// Copyright 2020 Autoware Foundation
+// Copyright 2025 TIER IV, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,12 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/**
- * @file sort1.cpp
- * @brief dummy sort executable to return error
- */
+#include "autoware/cuda_pointcloud_preprocessor/cuda_concatenate_data/cuda_cloud_collector.hpp"
 
-int main(int argc, char ** argv)
-{
-  return -1;
-}
+#include "autoware/cuda_pointcloud_preprocessor/cuda_concatenate_data/cuda_traits.hpp"
+
+/* *INDENT-OFF* */
+template class autoware::pointcloud_preprocessor::CloudCollector<
+  autoware::pointcloud_preprocessor::CudaPointCloud2Traits>;
+/* *INDENT-ON* */

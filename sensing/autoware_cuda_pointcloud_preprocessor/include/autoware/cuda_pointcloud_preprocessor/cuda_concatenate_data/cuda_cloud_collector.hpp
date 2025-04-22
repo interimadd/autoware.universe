@@ -1,4 +1,4 @@
-// Copyright 2020 Autoware Foundation
+// Copyright 2025 TIER IV, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,17 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/**
- * @file top3.cpp
- * @brief dummy top executable to provide invalid output
- */
+#ifndef AUTOWARE__CUDA_POINTCLOUD_PREPROCESSOR__CUDA_CONCATENATE_DATA__CUDA_CLOUD_COLLECTOR_HPP_
+#define AUTOWARE__CUDA_POINTCLOUD_PREPROCESSOR__CUDA_CONCATENATE_DATA__CUDA_CLOUD_COLLECTOR_HPP_
 
-#include <stdio.h>
+#include "autoware/pointcloud_preprocessor/concatenate_data/cloud_collector.hpp"
+#include "cuda_combine_cloud_handler.hpp"
 
-#include <cstdio>
-
-int main(int argc, char ** argv)
-{
-  printf("Tasks:");
-  return 0;
-}
+#endif  // AUTOWARE__CUDA_POINTCLOUD_PREPROCESSOR__CUDA_CONCATENATE_DATA__CUDA_CLOUD_COLLECTOR_HPP_
