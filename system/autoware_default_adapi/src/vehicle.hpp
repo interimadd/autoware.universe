@@ -48,14 +48,34 @@ private:
     autoware::component_interface_specs_universe::localization::KinematicState::Message
   > sub_kinematic_state_{this, autoware::component_interface_specs_universe::localization::KinematicState::name};
 
-  Sub<autoware::component_interface_specs_universe::localization::Acceleration> sub_acceleration_;
-  Sub<autoware::component_interface_specs_universe::vehicle::SteeringStatus> sub_steering_;
-  Sub<autoware::component_interface_specs_universe::vehicle::GearStatus> sub_gear_state_;
-  Sub<autoware::component_interface_specs_universe::vehicle::TurnIndicatorStatus>
-    sub_turn_indicator_;
-  Sub<autoware::component_interface_specs_universe::vehicle::HazardLightStatus> sub_hazard_light_;
-  Sub<autoware::component_interface_specs_universe::vehicle::EnergyStatus> sub_energy_level_;
-  Sub<autoware::component_interface_specs_universe::map::MapProjectorInfo> sub_map_projector_info_;
+  autoware_utils::InterProcessPollingSubscriber<
+    autoware::component_interface_specs_universe::localization::Acceleration::Message
+  > sub_acceleration_{this, autoware::component_interface_specs_universe::localization::Acceleration::name};
+
+  autoware_utils::InterProcessPollingSubscriber<
+    autoware::component_interface_specs_universe::vehicle::SteeringStatus::Message
+  > sub_steering_{this, autoware::component_interface_specs_universe::vehicle::SteeringStatus::name};
+
+  autoware_utils::InterProcessPollingSubscriber<
+    autoware::component_interface_specs_universe::vehicle::GearStatus::Message
+  > sub_gear_state_{this, autoware::component_interface_specs_universe::vehicle::GearStatus::name};
+
+  autoware_utils::InterProcessPollingSubscriber<
+    autoware::component_interface_specs_universe::vehicle::TurnIndicatorStatus::Message
+  > sub_turn_indicator_{this, autoware::component_interface_specs_universe::vehicle::TurnIndicatorStatus::name};
+
+  autoware_utils::InterProcessPollingSubscriber<
+    autoware::component_interface_specs_universe::vehicle::HazardLightStatus::Message
+  > sub_hazard_light_{this, autoware::component_interface_specs_universe::vehicle::HazardLightStatus::name};
+
+  autoware_utils::InterProcessPollingSubscriber<
+    autoware::component_interface_specs_universe::vehicle::EnergyStatus::Message
+  > sub_energy_level_{this, autoware::component_interface_specs_universe::vehicle::EnergyStatus::name};
+
+  autoware_utils::InterProcessPollingSubscriber<
+    autoware::component_interface_specs_universe::map::MapProjectorInfo::Message
+  > sub_map_projector_info_{this, autoware::component_interface_specs_universe::map::MapProjectorInfo::name};
+
   rclcpp::TimerBase::SharedPtr timer_;
 
   autoware::component_interface_specs_universe::localization::KinematicState::Message::
@@ -75,23 +95,6 @@ private:
   autoware::component_interface_specs_universe::map::MapProjectorInfo::Message::ConstSharedPtr
     map_projector_info_;
 
-  void kinematic_state(const autoware::component_interface_specs_universe::localization::
-                         KinematicState::Message::ConstSharedPtr msg_ptr);
-  void acceleration_status(const autoware::component_interface_specs_universe::localization::
-                             Acceleration::Message::ConstSharedPtr msg_ptr);
-  void steering_status(const autoware::component_interface_specs_universe::vehicle::SteeringStatus::
-                         Message::ConstSharedPtr msg_ptr);
-  void gear_status(
-    const autoware::component_interface_specs_universe::vehicle::GearStatus::Message::ConstSharedPtr
-      msg_ptr);
-  void turn_indicator_status(const autoware::component_interface_specs_universe::vehicle::
-                               TurnIndicatorStatus::Message::ConstSharedPtr msg_ptr);
-  void map_projector_info(const autoware::component_interface_specs_universe::map::
-                            MapProjectorInfo::Message::ConstSharedPtr msg_ptr);
-  void hazard_light_status(const autoware::component_interface_specs_universe::vehicle::
-                             HazardLightStatus::Message::ConstSharedPtr msg_ptr);
-  void energy_status(const autoware::component_interface_specs_universe::vehicle::EnergyStatus::
-                       Message::ConstSharedPtr msg_ptr);
   uint8_t mapping(
     std::unordered_map<uint8_t, uint8_t> hash_map, uint8_t input, uint8_t default_value);
   void publish_kinematics();
