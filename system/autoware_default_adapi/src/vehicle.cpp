@@ -69,7 +69,6 @@ VehicleNode::VehicleNode(const rclcpp::NodeOptions & options) : Node("vehicle", 
   group_cli_ = create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
   adaptor.init_pub(pub_kinematics_);
   adaptor.init_pub(pub_status_);
-  adaptor.init_sub(sub_kinematic_state_, this, &VehicleNode::kinematic_state);
   adaptor.init_sub(sub_acceleration_, this, &VehicleNode::acceleration_status);
   adaptor.init_sub(sub_steering_, this, &VehicleNode::steering_status);
   adaptor.init_sub(sub_gear_state_, this, &VehicleNode::gear_status);
@@ -90,12 +89,6 @@ uint8_t VehicleNode::mapping(
   } else {
     return hash_map[input];
   }
-}
-
-void VehicleNode::kinematic_state(const autoware::component_interface_specs_universe::localization::
-                                    KinematicState::Message::ConstSharedPtr msg_ptr)
-{
-  kinematic_state_msgs_ = msg_ptr;
 }
 
 void VehicleNode::acceleration_status(const autoware::component_interface_specs_universe::
@@ -139,6 +132,8 @@ void VehicleNode::map_projector_info(const MapProjectorInfo::ConstSharedPtr msg_
 
 void VehicleNode::publish_kinematics()
 {
+  kinematic_state_msgs_ = sub_kinematic_state_.take_data();
+
   if (!kinematic_state_msgs_ || !acceleration_msgs_ || !map_projector_info_) return;
 
   autoware::adapi_specs::vehicle::VehicleKinematics::Message vehicle_kinematics;

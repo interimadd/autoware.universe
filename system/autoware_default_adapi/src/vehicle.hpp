@@ -19,6 +19,7 @@
 #include <autoware/component_interface_specs_universe/localization.hpp>
 #include <autoware/component_interface_specs_universe/map.hpp>
 #include <autoware/component_interface_specs_universe/vehicle.hpp>
+#include <autoware_utils/ros/polling_subscriber.hpp>
 #include <rclcpp/rclcpp.hpp>
 
 #include <autoware_adapi_v1_msgs/msg/gear.hpp>
@@ -42,8 +43,11 @@ private:
   rclcpp::CallbackGroup::SharedPtr group_cli_;
   Pub<autoware::adapi_specs::vehicle::VehicleKinematics> pub_kinematics_;
   Pub<autoware::adapi_specs::vehicle::VehicleStatus> pub_status_;
-  Sub<autoware::component_interface_specs_universe::localization::KinematicState>
-    sub_kinematic_state_;
+
+  autoware_utils::InterProcessPollingSubscriber<
+    autoware::component_interface_specs_universe::localization::KinematicState::Message
+  > sub_kinematic_state_{this, autoware::component_interface_specs_universe::localization::KinematicState::name};
+
   Sub<autoware::component_interface_specs_universe::localization::Acceleration> sub_acceleration_;
   Sub<autoware::component_interface_specs_universe::vehicle::SteeringStatus> sub_steering_;
   Sub<autoware::component_interface_specs_universe::vehicle::GearStatus> sub_gear_state_;
