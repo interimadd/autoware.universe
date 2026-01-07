@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>autoware_default_adapi_poc</name>
+  <version>0.0.0</version>
+  <license>Apache License 2.0</license>
+  <description>The autoware_default_adapi_poc package</description>
+  <maintainer email="takahisa.ishikawa@tier4.jp">Takahisa Ishikawa</maintainer>
+
+  <depend>rclcpp</depend>
+  <depend>rclcpp_components</depend>
+  <depend>std_msgs</depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
