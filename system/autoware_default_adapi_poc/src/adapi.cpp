@@ -19,19 +19,33 @@ using namespace std::chrono_literals;
 namespace autoware::default_adapi
 {
 
-AdapiNode::AdapiNode(const rclcpp::NodeOptions & options)
-: Node("adapi_node", options), count_(0)
+Relay::Relay(
+  rclcpp::Node & node,
+  const RelayTopic relay_topic)
 {
-  publisher_ = this->create_publisher<std_msgs::msg::String>("topic", 10);
-  timer_ = this->create_wall_timer(500ms, std::bind(&AdapiNode::timer_callback, this));
+  pub_ = node.create_generic_publisher(
+    relay_topic.output_topic_name, relay_topic.topic_type,
+    rclcpp::QoS(10));
+
+  sub_ = node.create_generic_subscription(
+    relay_topic.input_topic_name, relay_topic.topic_type,
+    rclcpp::QoS(10).best_effort(),
+    [this](std::shared_ptr<rclcpp::SerializedMessage> msg) {
+      pub_->publish(*msg);
+    });
 }
 
-void AdapiNode::timer_callback()
+AdapiNode::AdapiNode(const rclcpp::NodeOptions & options)
+: Node("adapi_node", options)
 {
-  auto message = std_msgs::msg::String();
-  message.data = "Hello, world! " + std::to_string(count_++);
-  RCLCPP_INFO(this->get_logger(), "Publishing: '%s'", message.data.c_str());
-  publisher_->publish(message);
+  std::vector<RelayTopic> relay_topics = {
+    {"input_topic_1", "output_topic_1", "std_msgs/msg/String"},
+    {"input_topic_2", "output_topic_2", "std_msgs/msg/String"},
+    // Add more topics as needed
+  };
+  for (const auto & relay_topic : relay_topics) {
+    relays_.emplace_back(*this, relay_topic);
+  }
 }
 
 }  // namespace autoware::default_adapi

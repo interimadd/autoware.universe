@@ -19,6 +19,7 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <vector>
 
 #include <rclcpp/rclcpp.hpp>
 #include <std_msgs/msg/string.hpp>
@@ -26,16 +27,29 @@
 namespace autoware::default_adapi
 {
 
+struct RelayTopic
+{
+  std::string input_topic_name;
+  std::string output_topic_name;
+  std::string topic_type;
+};
+
+class Relay
+{
+public:
+  explicit Relay(rclcpp::Node & node, const RelayTopic relay_topic);
+private:
+  rclcpp::GenericPublisher::SharedPtr pub_;
+  rclcpp::GenericSubscription::SharedPtr sub_;
+};
+
 class AdapiNode : public rclcpp::Node
 {
 public:
   explicit AdapiNode(const rclcpp::NodeOptions & options);
 
 private:
-  void timer_callback();
-  rclcpp::TimerBase::SharedPtr timer_;
-  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr publisher_;
-  size_t count_;
+  std::vector<Relay> relays_;
 };
 
 }  // namespace autoware::default_adapi
