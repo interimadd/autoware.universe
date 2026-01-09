@@ -38,11 +38,25 @@ Relay::Relay(
 AdapiNode::AdapiNode(const rclcpp::NodeOptions & options)
 : Node("adapi_node", options)
 {
-  std::vector<RelayTopic> relay_topics = {
-    {"input_topic_1", "output_topic_1", "std_msgs/msg/String"},
-    {"input_topic_2", "output_topic_2", "std_msgs/msg/String"},
-    // Add more topics as needed
-  };
+  // Declare parameter for number of relay topics
+  rcl_interfaces::msg::ParameterDescriptor descriptor;
+  descriptor.description = "Number of relay topics to create";
+  descriptor.read_only = false;
+  this->declare_parameter("num_relay_topics", 1, descriptor);
+
+  // Get the number of relay topics from parameter
+  int num_topics = this->get_parameter("num_relay_topics").as_int();
+
+  // Create relay topics based on the parameter
+  std::vector<RelayTopic> relay_topics;
+  for (int i = 1; i <= num_topics; ++i) {
+    relay_topics.push_back({
+      "input_topic_" + std::to_string(i),
+      "output_topic_" + std::to_string(i),
+      "std_msgs/msg/String"
+    });
+  }
+
   for (const auto & relay_topic : relay_topics) {
     relays_.emplace_back(*this, relay_topic);
   }

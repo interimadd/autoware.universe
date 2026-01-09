@@ -23,6 +23,7 @@
 
 #include <rclcpp/rclcpp.hpp>
 #include <std_msgs/msg/string.hpp>
+#include <rcl_interfaces/msg/parameter_descriptor.hpp>
 
 namespace autoware::default_adapi
 {
