@@ -16,4 +16,4 @@ ament_auto_add_executable(adapi_node
   src/adapi_node.cpp
 )
 
-ament_auto_package()
+ament_auto_package(INSTALL_TO_SHARE launch)
