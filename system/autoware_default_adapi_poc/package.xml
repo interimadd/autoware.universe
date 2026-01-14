@@ -10,6 +10,7 @@
   <depend>rclcpp</depend>
   <depend>rclcpp_components</depend>
   <depend>std_msgs</depend>
+  <depend>autoware_utils_rclcpp</depend>
 
   <exec_depend>topic_tools</exec_depend>
 

@@ -16,4 +16,16 @@ ament_auto_add_executable(adapi_node
   src/adapi_node.cpp
 )
 
+ament_auto_add_library(take_relay_node_component SHARED
+  src/take_relay_node.cpp
+)
+
+rclcpp_components_register_nodes(take_relay_node_component
+  "autoware::default_adapi::TakeRelayNode"
+)
+
+ament_auto_add_executable(take_relay_node
+  src/take_relay_node.cpp
+)
+
 ament_auto_package(INSTALL_TO_SHARE launch)
