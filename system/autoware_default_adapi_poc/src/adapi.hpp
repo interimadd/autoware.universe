@@ -50,7 +50,7 @@ public:
   explicit AdapiNode(const rclcpp::NodeOptions & options);
 
 private:
-  std::vector<Relay> relays_;
+  std::vector<std::shared_ptr<Relay>> relays_;
 };
 
 }  // namespace autoware::default_adapi

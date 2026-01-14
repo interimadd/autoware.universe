@@ -58,7 +58,7 @@ AdapiNode::AdapiNode(const rclcpp::NodeOptions & options)
   }
 
   for (const auto & relay_topic : relay_topics) {
-    relays_.emplace_back(*this, relay_topic);
+    relays_.emplace_back(std::make_shared<Relay>(*this, relay_topic));
   }
 }
 
