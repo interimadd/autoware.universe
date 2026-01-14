@@ -31,8 +31,7 @@ def generate_topic_tools_relay_standalone_nodes(serial_number: int) -> Node:
         parameters=[
             {'input_topic': f'/input_topic_{serial_number}'},
             {'output_topic': f'/output_topic_{serial_number}'}
-        ],
-        output='screen'
+        ]
     )
 
 

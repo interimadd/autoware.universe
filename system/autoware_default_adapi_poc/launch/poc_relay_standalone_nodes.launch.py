@@ -31,8 +31,7 @@ def generate_poc_relay_standalone_nodes(serial_number: int) -> Node:
         remappings=[
             (f'/input_topic_1', f'/input_topic_{serial_number}'),
             (f'/output_topic_1', f'/output_topic_{serial_number}')
-        ],
-        output='screen'
+        ]
     )
 
 

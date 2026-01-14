@@ -29,8 +29,7 @@ def generate_poc_relay_node(topic_num: int) -> Node:
         executable='adapi_node',
         parameters=[
             {"num_relay_topics": topic_num}
-        ],
-        output='screen'
+        ]
     )
 
 
