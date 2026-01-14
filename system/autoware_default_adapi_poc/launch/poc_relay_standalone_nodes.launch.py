@@ -1,3 +1,10 @@
+"""
+自作のRelayノードをstandaloneで複数起動するLaunchファイル
+立ち上げるノードの数を引数で指定可能
+
+使い方：
+ros2 launch autoware_default_adapi_poc poc_relay_standalone_nodes.launch.py total_nodes:=10
+"""
 from launch import LaunchDescription
 from launch_ros.actions import Node
 from launch.actions import ExecuteProcess, DeclareLaunchArgument, OpaqueFunction

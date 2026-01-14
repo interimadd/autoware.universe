@@ -1,5 +1,8 @@
 
 ```sh
+# ビルド
+colcon build --symlink-install --cmake-args -DBUILD_TESTING=true -DCMAKE_CXX_FLAGS='-fprofile-arcs -ftest-coverage' -DCMAKE_C_FLAGS='-fprofile-arcs -ftest-coverage' --packages-select autoware_default_adapi_poc
+
 # 自作relayノードを単体で立ち上げる
 ros2 run autoware_default_adapi_poc adapi_node --ros-args -r /input_topic_1:=/new_topic  -p num_relay_topics:=5
 
