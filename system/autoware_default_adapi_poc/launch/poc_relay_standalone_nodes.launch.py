@@ -27,11 +27,10 @@ def generate_poc_relay_standalone_nodes(serial_number: int) -> Node:
     return Node(
         package='autoware_default_adapi_poc',
         executable='adapi_node',
-        arguments=[
-            "--ros-args",
-            "--remap", f"__node:=poc_relay_{serial_number}",
-            "--remap", f"/input_topic_1:=/input_topic_{serial_number}",
-            "--remap", f"/output_topic_1:=/output_topic_{serial_number}"
+        name=f'poc_relay_{serial_number}',
+        remappings=[
+            (f'/input_topic_1', f'/input_topic_{serial_number}'),
+            (f'/output_topic_1', f'/output_topic_{serial_number}')
         ],
         output='screen'
     )
