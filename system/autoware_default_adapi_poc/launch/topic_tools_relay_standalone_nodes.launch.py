@@ -1,9 +1,9 @@
 """
 topic_toolsのRelayノードをstandaloneで複数起動するLaunchファイル
-立ち上げるノードの数を引数で指定可能
+受信するtopicの数を引数で指定可能
 
 使い方：
-ros2 launch autoware_default_adapi_poc topic_tools_relay_standalone_nodes.launch.py total_nodes:=10
+ros2 launch autoware_default_adapi_poc topic_tools_relay_standalone_nodes.launch.py topic_num:=10
 """
 from launch import LaunchDescription
 from launch_ros.actions import Node
@@ -35,25 +35,26 @@ def generate_topic_tools_relay_standalone_nodes(serial_number: int) -> Node:
         output='screen'
     )
 
+
 def generate_launch_description():
-    # Declare launch argument for total_nodes
-    declare_total_nodes = DeclareLaunchArgument(
-        'total_nodes',
+    # Declare launch argument for topic_num
+    declare_topic_num = DeclareLaunchArgument(
+        'topic_num',
         default_value='5',
-        description='Number of standalone nodes to launch'
+        description='Number of topics to receive and publish'
     )
     
     def launch_setup(context, *args, **kwargs):
-        total_nodes = int(LaunchConfiguration('total_nodes').perform(context))
+        topic_num = int(LaunchConfiguration('topic_num').perform(context))
         nodes = [
-            generate_topic_tools_relay_standalone_nodes(i) for i in range(1, total_nodes + 1)
+            generate_topic_tools_relay_standalone_nodes(i) for i in range(1, topic_num + 1)
         ]
         nodes += [
-            generate_message_publisher_node(i) for i in range(1, total_nodes + 1)
+            generate_message_publisher_node(i) for i in range(1, topic_num + 1)
         ]
         return nodes
     
     return LaunchDescription([
-        declare_total_nodes,
+        declare_topic_num,
         OpaqueFunction(function=launch_setup)
     ])
