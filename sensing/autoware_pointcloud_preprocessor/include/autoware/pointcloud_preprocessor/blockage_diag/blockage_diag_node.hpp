@@ -41,12 +41,6 @@ using diagnostic_updater::Updater;
 class BlockageDiagComponent : public rclcpp::Node
 {
 private:
-  /** \brief Parameter service callback result : needed to be hold */
-  OnSetParametersCallbackHandle::SharedPtr set_param_res_;
-
-  /** \brief Parameter service callback */
-  rcl_interfaces::msg::SetParametersResult param_callback(const std::vector<rclcpp::Parameter> & p);
-
   // ROS-specific components
   Updater updater_{this};
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr pointcloud_sub_;
