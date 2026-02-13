@@ -149,6 +149,9 @@ BlockageDiagResult BlockageDiag::update(const sensor_msgs::msg::PointCloud2 & in
       blockage_result, blockage_mask_multi_frame, dust_result, dust_mask_multi_frame, input.header);
   }
 
+  // Cache the result for later retrieval
+  latest_result_ = result;
+
   return result;
 }
 
@@ -160,6 +163,30 @@ bool BlockageDiag::is_dust_detection_enabled() const
 bool BlockageDiag::is_debug_output_enabled() const
 {
   return config_.enable_debug_output;
+}
+
+std::optional<DiagnosticOutput> BlockageDiag::get_blockage_detection_diag() const
+{
+  if (!latest_result_.has_value()) {
+    return std::nullopt;
+  }
+  return latest_result_->blockage_diagnostic;
+}
+
+std::optional<DiagnosticOutput> BlockageDiag::get_dust_detection_diag() const
+{
+  if (!latest_result_.has_value()) {
+    return std::nullopt;
+  }
+  return latest_result_->dust_diagnostic;
+}
+
+std::optional<BlockageDiagDebugImages> BlockageDiag::get_debug_images() const
+{
+  if (!latest_result_.has_value()) {
+    return std::nullopt;
+  }
+  return latest_result_->debug_images;
 }
 
 BlockageDiagDebugImages BlockageDiag::create_debug_images(

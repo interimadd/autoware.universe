@@ -120,8 +120,32 @@ public:
    */
   bool is_debug_output_enabled() const;
 
+  /**
+   * @brief Get the latest blockage detection diagnostic result.
+   *
+   * @return std::optional<DiagnosticOutput> containing the blockage diagnostic, or std::nullopt if no data.
+   */
+  std::optional<DiagnosticOutput> get_blockage_detection_diag() const;
+
+  /**
+   * @brief Get the latest dust detection diagnostic result.
+   *
+   * @return std::optional<DiagnosticOutput> containing the dust diagnostic, or std::nullopt if no data.
+   */
+  std::optional<DiagnosticOutput> get_dust_detection_diag() const;
+
+  /**
+   * @brief Get the latest debug images.
+   *
+   * @return std::optional<BlockageDiagDebugImages> containing debug images, or std::nullopt if not available.
+   */
+  std::optional<BlockageDiagDebugImages> get_debug_images() const;
+
 private:
   BlockageDiagConfig config_;
+
+  // Cached latest diagnostic result
+  std::optional<BlockageDiagResult> latest_result_;
 
   // Core components
   std::unique_ptr<pointcloud2_to_depth_image::PointCloud2ToDepthImage> depth_converter_;

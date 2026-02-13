@@ -55,9 +55,6 @@ private:
   // Core blockage diagnosis engine (ROS-independent)
   std::unique_ptr<BlockageDiag> blockage_diag_;
 
-  // Cached latest diagnostic result for updater callbacks
-  std::optional<BlockageDiagResult> latest_result_;
-
   /**
    * @brief Main callback that processes incoming point cloud data.
    *

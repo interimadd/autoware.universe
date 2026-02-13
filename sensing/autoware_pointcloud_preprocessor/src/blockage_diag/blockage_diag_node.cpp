@@ -121,37 +121,34 @@ BlockageDiagComponent::BlockageDiagComponent(const rclcpp::NodeOptions & options
 
 void BlockageDiagComponent::run_blockage_check(DiagnosticStatusWrapper & stat) const
 {
-  if (!latest_result_.has_value()) {
+  const auto output = blockage_diag_->get_blockage_detection_diag();
+  if (!output.has_value()) {
     stat.summary(DiagnosticStatus::STALE, "No data received");
     return;
   }
 
-  const auto & output = latest_result_->blockage_diagnostic;
-  stat.summary(static_cast<unsigned char>(output.level), output.message);
-  for (const auto & data : output.additional_data) {
+  stat.summary(static_cast<unsigned char>(output->level), output->message);
+  for (const auto & data : output->additional_data) {
     stat.add(data.key, data.value);
   }
 }
 
 void BlockageDiagComponent::run_dust_check(diagnostic_updater::DiagnosticStatusWrapper & stat) const
 {
-  if (!latest_result_.has_value() || !latest_result_->dust_diagnostic.has_value()) {
+  const auto output = blockage_diag_->get_dust_detection_diag();
+  if (!output.has_value()) {
     stat.summary(DiagnosticStatus::STALE, "No dust data available");
     return;
   }
 
-  const auto & output = latest_result_->dust_diagnostic.value();
-  stat.summary(static_cast<unsigned char>(output.level), output.message);
-  for (const auto & data : output.additional_data) {
+  stat.summary(static_cast<unsigned char>(output->level), output->message);
+  for (const auto & data : output->additional_data) {
     stat.add(data.key, data.value);
   }
 }
 
 void BlockageDiagComponent::publish_debug_images(const BlockageDiagDebugImages & debug_images)
 {
-  if (!debug_images) {
-    return;
-  }
   // blockage_dust_merged is the main debug visualization (header already set)
   if (!debug_images.blockage_dust_merged.data.empty()) {
     auto msg = std::make_shared<sensor_msgs::msg::Image>(debug_images.blockage_dust_merged);
@@ -163,11 +160,13 @@ void BlockageDiagComponent::update_diagnostics(
   const sensor_msgs::msg::PointCloud2::ConstSharedPtr & input)
 {
   try {
-    latest_result_ = blockage_diag_->update(*input);
-    publish_debug_images(latest_result_->debug_images.value());
+    blockage_diag_->update(*input);
+    const auto debug_images = blockage_diag_->get_debug_images();
+    if (debug_images.has_value()) {
+      publish_debug_images(debug_images.value());
+    }
   } catch (const std::runtime_error & e) {
     RCLCPP_ERROR(get_logger(), "Blockage diagnostics failed: %s", e.what());
-    latest_result_.reset();
   }
 }
 }  // namespace autoware::pointcloud_preprocessor
