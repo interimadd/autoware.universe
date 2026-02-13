@@ -65,12 +65,10 @@ struct BlockageDiagDebugImages
 /**
  * @brief Result of blockage diagnosis.
  *
- * This structure contains diagnostic outputs and optional debug images.
+ * This structure contains optional debug images.
  */
 struct BlockageDiagResult
 {
-  DiagnosticOutput blockage_diagnostic;
-  std::optional<DiagnosticOutput> dust_diagnostic;
   std::optional<BlockageDiagDebugImages> debug_images;
   std_msgs::msg::Header header;
 };

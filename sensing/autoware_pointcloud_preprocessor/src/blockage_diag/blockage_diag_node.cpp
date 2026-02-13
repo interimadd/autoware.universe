@@ -122,13 +122,8 @@ BlockageDiagComponent::BlockageDiagComponent(const rclcpp::NodeOptions & options
 void BlockageDiagComponent::run_blockage_check(DiagnosticStatusWrapper & stat) const
 {
   const auto output = blockage_diag_->get_blockage_detection_diag();
-  if (!output.has_value()) {
-    stat.summary(DiagnosticStatus::STALE, "No data received");
-    return;
-  }
-
-  stat.summary(static_cast<unsigned char>(output->level), output->message);
-  for (const auto & data : output->additional_data) {
+  stat.summary(static_cast<unsigned char>(output.level), output.message);
+  for (const auto & data : output.additional_data) {
     stat.add(data.key, data.value);
   }
 }
@@ -136,13 +131,8 @@ void BlockageDiagComponent::run_blockage_check(DiagnosticStatusWrapper & stat) c
 void BlockageDiagComponent::run_dust_check(diagnostic_updater::DiagnosticStatusWrapper & stat) const
 {
   const auto output = blockage_diag_->get_dust_detection_diag();
-  if (!output.has_value()) {
-    stat.summary(DiagnosticStatus::STALE, "No dust data available");
-    return;
-  }
-
-  stat.summary(static_cast<unsigned char>(output->level), output->message);
-  for (const auto & data : output->additional_data) {
+  stat.summary(static_cast<unsigned char>(output.level), output.message);
+  for (const auto & data : output.additional_data) {
     stat.add(data.key, data.value);
   }
 }

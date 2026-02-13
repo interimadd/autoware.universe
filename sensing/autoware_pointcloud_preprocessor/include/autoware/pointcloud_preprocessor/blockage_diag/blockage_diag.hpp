@@ -123,16 +123,16 @@ public:
   /**
    * @brief Get the latest blockage detection diagnostic result.
    *
-   * @return std::optional<DiagnosticOutput> containing the blockage diagnostic, or std::nullopt if no data.
+   * @return DiagnosticOutput containing the blockage diagnostic. Returns STALE if no data available.
    */
-  std::optional<DiagnosticOutput> get_blockage_detection_diag() const;
+  DiagnosticOutput get_blockage_detection_diag() const;
 
   /**
    * @brief Get the latest dust detection diagnostic result.
    *
-   * @return std::optional<DiagnosticOutput> containing the dust diagnostic, or std::nullopt if no data.
+   * @return DiagnosticOutput containing the dust diagnostic. Returns STALE if dust detection is disabled or no data available.
    */
-  std::optional<DiagnosticOutput> get_dust_detection_diag() const;
+  DiagnosticOutput get_dust_detection_diag() const;
 
   /**
    * @brief Get the latest debug images.

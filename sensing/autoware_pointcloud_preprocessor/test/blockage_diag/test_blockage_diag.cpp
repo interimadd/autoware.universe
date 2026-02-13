@@ -202,9 +202,15 @@ TEST(BlockageDiagTest, BasicBlockageDetectionNoDustNoDebug)
   BlockageDiagResult result = diag.update(input);
 
   // Assert
-  EXPECT_FALSE(result.dust_diagnostic.has_value());
   EXPECT_FALSE(result.debug_images.has_value());
-  EXPECT_FALSE(result.blockage_diagnostic.message.empty());
+
+  // Blockage diagnostic should be available through get_blockage_detection_diag()
+  auto blockage_diag = diag.get_blockage_detection_diag();
+  EXPECT_FALSE(blockage_diag.message.empty());
+
+  // Dust diagnostic should return STALE when disabled
+  auto dust_diag = diag.get_dust_detection_diag();
+  EXPECT_EQ(dust_diag.level, DiagnosticLevel::STALE);
 }
 
 TEST(BlockageDiagTest, DustDetectionEnabled)
@@ -219,9 +225,12 @@ TEST(BlockageDiagTest, DustDetectionEnabled)
   BlockageDiagResult result = diag.update(input);
 
   // Assert
-  EXPECT_TRUE(result.dust_diagnostic.has_value());
-  EXPECT_FALSE(result.dust_diagnostic->message.empty());
   EXPECT_FALSE(result.debug_images.has_value());
+
+  // Dust diagnostic should be available through get_dust_detection_diag()
+  auto dust_diag = diag.get_dust_detection_diag();
+  EXPECT_FALSE(dust_diag.message.empty());
+  EXPECT_NE(dust_diag.level, DiagnosticLevel::STALE);
 }
 
 TEST(BlockageDiagTest, DebugImagesGeneratedWithoutDust)

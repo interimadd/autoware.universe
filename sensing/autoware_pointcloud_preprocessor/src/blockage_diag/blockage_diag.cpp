@@ -132,7 +132,6 @@ BlockageDiagResult BlockageDiag::update(const sensor_msgs::msg::PointCloud2 & in
   BlockageDetectionResult blockage_result =
     blockage_detector_->compute_blockage_diagnostics(depth_image_16u);
   cv::Mat blockage_mask_multi_frame = blockage_aggregator_->update(blockage_result.blockage_mask);
-  result.blockage_diagnostic = blockage_detector_->get_blockage_diagnostics_output();
 
   // Dust detection (optional)
   std::optional<DustDetectionResult> dust_result;
@@ -140,7 +139,6 @@ BlockageDiagResult BlockageDiag::update(const sensor_msgs::msg::PointCloud2 & in
   if (config_.enable_dust_detection && dust_detector_) {
     dust_result = dust_detector_->compute_dust_diagnostics(depth_image_16u);
     dust_mask_multi_frame = dust_aggregator_->update(dust_result->dust_mask);
-    result.dust_diagnostic = dust_detector_->get_dust_diagnostics_output();
   }
 
   // Generate debug images (optional)
@@ -165,20 +163,23 @@ bool BlockageDiag::is_debug_output_enabled() const
   return config_.enable_debug_output;
 }
 
-std::optional<DiagnosticOutput> BlockageDiag::get_blockage_detection_diag() const
+DiagnosticOutput BlockageDiag::get_blockage_detection_diag() const
 {
-  if (!latest_result_.has_value()) {
-    return std::nullopt;
-  }
-  return latest_result_->blockage_diagnostic;
+  return blockage_detector_->get_blockage_diagnostics_output();
 }
 
-std::optional<DiagnosticOutput> BlockageDiag::get_dust_detection_diag() const
+DiagnosticOutput BlockageDiag::get_dust_detection_diag() const
 {
-  if (!latest_result_.has_value()) {
-    return std::nullopt;
+  DiagnosticOutput output;
+
+  if (!config_.enable_dust_detection || !dust_detector_) {
+    output.level = DiagnosticLevel::STALE;
+    output.message = "Dust detection is disabled";
+    return output;
   }
-  return latest_result_->dust_diagnostic;
+
+  output = dust_detector_->get_dust_diagnostics_output();
+  return output;
 }
 
 std::optional<BlockageDiagDebugImages> BlockageDiag::get_debug_images() const
