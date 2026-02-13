@@ -23,8 +23,7 @@
 #include "autoware/pointcloud_preprocessor/blockage_diag/multi_frame_detection_aggregator.hpp"
 #include "autoware/pointcloud_preprocessor/blockage_diag/pointcloud2_to_depth_image.hpp"
 
-#include <opencv2/core/mat.hpp>
-
+#include <sensor_msgs/msg/image.hpp>
 #include <std_msgs/msg/header.hpp>
 
 #include <optional>
@@ -52,14 +51,15 @@ struct BlockageDiagConfig
  * @brief Debug images generated during blockage/dust detection.
  *
  * This structure contains various masks and visualizations for debugging purposes.
+ * Images are stored as ROS sensor_msgs::msg::Image for direct publishing.
  */
 struct BlockageDiagDebugImages
 {
-  cv::Mat blockage_mask_single_frame;
-  cv::Mat blockage_mask_multi_frame;
-  cv::Mat dust_mask_single_frame;
-  cv::Mat dust_mask_multi_frame;
-  cv::Mat blockage_dust_merged;
+  sensor_msgs::msg::Image blockage_mask_single_frame;
+  sensor_msgs::msg::Image blockage_mask_multi_frame;
+  sensor_msgs::msg::Image dust_mask_single_frame;
+  sensor_msgs::msg::Image dust_mask_multi_frame;
+  sensor_msgs::msg::Image blockage_dust_merged;
 };
 
 /**

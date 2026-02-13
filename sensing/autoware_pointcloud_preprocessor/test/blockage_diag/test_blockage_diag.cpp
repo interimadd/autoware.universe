@@ -237,11 +237,11 @@ TEST(BlockageDiagTest, DebugImagesGeneratedWithoutDust)
 
   // Assert
   ASSERT_TRUE(result.debug_images.has_value());
-  EXPECT_FALSE(result.debug_images->blockage_mask_single_frame.empty());
-  EXPECT_FALSE(result.debug_images->blockage_mask_multi_frame.empty());
+  EXPECT_FALSE(result.debug_images->blockage_mask_single_frame.data.empty());
+  EXPECT_FALSE(result.debug_images->blockage_mask_multi_frame.data.empty());
   // Dust masks should be empty when dust detection is disabled
-  EXPECT_TRUE(result.debug_images->dust_mask_single_frame.empty());
-  EXPECT_TRUE(result.debug_images->dust_mask_multi_frame.empty());
+  EXPECT_TRUE(result.debug_images->dust_mask_single_frame.data.empty());
+  EXPECT_TRUE(result.debug_images->dust_mask_multi_frame.data.empty());
 }
 
 TEST(BlockageDiagTest, DebugImagesGeneratedWithDust)
@@ -257,13 +257,13 @@ TEST(BlockageDiagTest, DebugImagesGeneratedWithDust)
 
   // Assert
   ASSERT_TRUE(result.debug_images.has_value());
-  EXPECT_FALSE(result.debug_images->blockage_mask_single_frame.empty());
-  EXPECT_FALSE(result.debug_images->blockage_mask_multi_frame.empty());
-  EXPECT_FALSE(result.debug_images->dust_mask_single_frame.empty());
-  EXPECT_FALSE(result.debug_images->dust_mask_multi_frame.empty());
-  EXPECT_FALSE(result.debug_images->blockage_dust_merged.empty());
-  // Check that merged image is RGB
-  EXPECT_EQ(result.debug_images->blockage_dust_merged.type(), CV_8UC3);
+  EXPECT_FALSE(result.debug_images->blockage_mask_single_frame.data.empty());
+  EXPECT_FALSE(result.debug_images->blockage_mask_multi_frame.data.empty());
+  EXPECT_FALSE(result.debug_images->dust_mask_single_frame.data.empty());
+  EXPECT_FALSE(result.debug_images->dust_mask_multi_frame.data.empty());
+  EXPECT_FALSE(result.debug_images->blockage_dust_merged.data.empty());
+  // Check that merged image is BGR8 (3 channels, 8-bit)
+  EXPECT_EQ(result.debug_images->blockage_dust_merged.encoding, "bgr8");
 }
 
 TEST(BlockageDiagTest, InvalidPointCloudThrowsException)
@@ -327,7 +327,7 @@ TEST(BlockageDiagTest, MultiFrameProcessing)
 
     // Assert: Each frame produces valid results
     ASSERT_TRUE(result.debug_images.has_value());
-    EXPECT_FALSE(result.debug_images->blockage_mask_multi_frame.empty());
+    EXPECT_FALSE(result.debug_images->blockage_mask_multi_frame.data.empty());
     EXPECT_EQ(result.header.stamp.sec, i);
   }
 }

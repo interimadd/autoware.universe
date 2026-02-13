@@ -82,11 +82,11 @@ private:
   /**
    * @brief Publish debug images if available.
    *
+   * Images already have headers set by BlockageDiag.
+   *
    * @param debug_images The debug images to publish.
-   * @param header The header for the published images.
    */
-  void publish_debug_images(
-    const BlockageDiagDebugImages & debug_images, const std_msgs::msg::Header & header);
+  void publish_debug_images(const BlockageDiagDebugImages & debug_images);
 
 public:
   explicit BlockageDiagComponent(const rclcpp::NodeOptions & options);

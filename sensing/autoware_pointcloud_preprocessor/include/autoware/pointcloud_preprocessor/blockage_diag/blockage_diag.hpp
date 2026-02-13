@@ -139,12 +139,14 @@ private:
    * @param blockage_mask_multi_frame Multi-frame aggregated blockage mask.
    * @param dust_result Single-frame dust detection result (optional).
    * @param dust_mask_multi_frame Multi-frame aggregated dust mask (optional).
+   * @param header Header to set on all generated images.
    * @return BlockageDiagDebugImages containing all debug visualizations.
    */
   BlockageDiagDebugImages create_debug_images(
     const BlockageDetectionResult & blockage_result, const cv::Mat & blockage_mask_multi_frame,
     const std::optional<DustDetectionResult> & dust_result,
-    const std::optional<cv::Mat> & dust_mask_multi_frame) const;
+    const std::optional<cv::Mat> & dust_mask_multi_frame,
+    const std_msgs::msg::Header & header) const;
 };
 
 }  // namespace autoware::pointcloud_preprocessor

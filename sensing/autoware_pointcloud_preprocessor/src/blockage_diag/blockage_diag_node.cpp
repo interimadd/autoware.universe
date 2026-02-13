@@ -147,15 +147,11 @@ void BlockageDiagComponent::run_dust_check(diagnostic_updater::DiagnosticStatusW
   }
 }
 
-void BlockageDiagComponent::publish_debug_images(
-  const BlockageDiagDebugImages & debug_images, const std_msgs::msg::Header & header)
+void BlockageDiagComponent::publish_debug_images(const BlockageDiagDebugImages & debug_images)
 {
-  if (!debug_images) {
-    return;
-  }
-  if (!debug_images.blockage_dust_merged.empty()) {
-    sensor_msgs::msg::Image::SharedPtr msg =
-      cv_bridge::CvImage(header, "bgr8", debug_images.blockage_dust_merged).toImageMsg();
+  // blockage_dust_merged is the main debug visualization (header already set)
+  if (!debug_images.blockage_dust_merged.data.empty()) {
+    auto msg = std::make_shared<sensor_msgs::msg::Image>(debug_images.blockage_dust_merged);
     blockage_dust_merged_pub_.publish(msg);
   }
 }
@@ -165,7 +161,10 @@ void BlockageDiagComponent::update_diagnostics(
 {
   try {
     latest_result_ = blockage_diag_->update(*input);
-    publish_debug_images(latest_result_->debug_images.value(), latest_result_->header);
+
+    if (latest_result_->debug_images.has_value()) {
+      publish_debug_images(latest_result_->debug_images.value());
+    }
   } catch (const std::runtime_error & e) {
     RCLCPP_ERROR(get_logger(), "Blockage diagnostics failed: %s", e.what());
     latest_result_.reset();
