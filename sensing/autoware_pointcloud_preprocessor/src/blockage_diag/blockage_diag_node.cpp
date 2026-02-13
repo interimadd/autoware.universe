@@ -179,31 +179,9 @@ void BlockageDiagComponent::publish_dust_debug_info(
   const DustDetectionResult & dust_result, const std_msgs::msg::Header & input_header,
   const cv::Mat & blockage_mask_multi_frame)
 {
-  autoware_internal_debug_msgs::msg::Float32Stamped ground_dust_ratio_msg;
-  ground_dust_ratio_msg.data = dust_result.ground_dust_ratio;
-  ground_dust_ratio_msg.stamp = now();
-  ground_dust_ratio_pub_->publish(ground_dust_ratio_msg);
-
   if (publish_debug_image_) {
     auto dimensions = dust_result.dust_mask.size();
     cv::Mat multi_frame_ground_dust_result = dust_aggregator_->update(dust_result.dust_mask);
-
-    // Publish single-frame dust mask image with color map
-    cv::Mat single_frame_ground_dust_colorized(dimensions, CV_8UC3, cv::Scalar(0, 0, 0));
-    cv::applyColorMap(dust_result.dust_mask, single_frame_ground_dust_colorized, cv::COLORMAP_JET);
-    sensor_msgs::msg::Image::SharedPtr single_frame_dust_mask_msg =
-      cv_bridge::CvImage(std_msgs::msg::Header(), "bgr8", single_frame_ground_dust_colorized)
-        .toImageMsg();
-    single_frame_dust_mask_pub.publish(single_frame_dust_mask_msg);
-
-    // Publish multi-frame dust mask image with color map
-    cv::Mat multi_frame_ground_dust_colorized;
-    cv::applyColorMap(
-      multi_frame_ground_dust_result, multi_frame_ground_dust_colorized, cv::COLORMAP_JET);
-    sensor_msgs::msg::Image::SharedPtr multi_frame_dust_mask_msg =
-      cv_bridge::CvImage(std_msgs::msg::Header(), "bgr8", multi_frame_ground_dust_colorized)
-        .toImageMsg();
-    multi_frame_dust_mask_pub.publish(multi_frame_dust_mask_msg);
 
     // Publish blockage and dust merged image
     cv::Mat blockage_dust_merged_img(dimensions, CV_8UC3, cv::Scalar(0, 0, 0));
