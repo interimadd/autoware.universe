@@ -144,7 +144,7 @@ BlockageDiagResult BlockageDiag::update(const sensor_msgs::msg::PointCloud2 & in
   // Generate debug image (optional)
   if (config_.enable_debug_output) {
     result.debug_image = create_debug_images(
-      blockage_result, blockage_mask_multi_frame, dust_result, dust_mask_multi_frame, input.header);
+      blockage_mask_multi_frame, dust_result, dust_mask_multi_frame, input.header);
   }
 
   // Cache the result for later retrieval
@@ -181,7 +181,7 @@ BlockageDiagDebugImages BlockageDiag::get_debug_images() const
 }
 
 sensor_msgs::msg::Image BlockageDiag::create_debug_images(
-  const BlockageDetectionResult & blockage_result, const cv::Mat & blockage_mask_multi_frame,
+  const cv::Mat & blockage_mask_multi_frame,
   const std::optional<DustDetectionResult> & dust_result,
   const std::optional<cv::Mat> & dust_mask_multi_frame, const std_msgs::msg::Header & header) const
 {

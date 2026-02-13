@@ -16,18 +16,59 @@
 #define AUTOWARE__POINTCLOUD_PREPROCESSOR__BLOCKAGE_DIAG__BLOCKAGE_DIAG_HPP_
 
 #include "blockage_diag_types.hpp"
-#include "blockage_diag_config.hpp"
+
+#include "autoware/pointcloud_preprocessor/blockage_diag/blockage_detection.hpp"
+#include "autoware/pointcloud_preprocessor/blockage_diag/dust_detection.hpp"
+#include "autoware/pointcloud_preprocessor/blockage_diag/multi_frame_detection_aggregator.hpp"
+#include "autoware/pointcloud_preprocessor/blockage_diag/pointcloud2_to_depth_image.hpp"
 
 #include <opencv2/core/mat.hpp>
 
+#include <sensor_msgs/msg/image.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
+#include <std_msgs/msg/header.hpp>
 
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
 
 namespace autoware::pointcloud_preprocessor
 {
+
+/**
+ * @brief Configuration for the BlockageDiag class.
+ *
+ * This structure consolidates all configuration parameters needed for blockage and dust detection.
+ */
+struct BlockageDiagConfig
+{
+  pointcloud2_to_depth_image::ConverterConfig depth_converter_config;
+  BlockageDetectionConfig blockage_config;
+  MultiFrameDetectionAggregatorConfig blockage_aggregator_config;
+  bool enable_dust_detection;
+  DustDetectionConfig dust_config;
+  MultiFrameDetectionAggregatorConfig dust_aggregator_config;
+  bool enable_debug_output;
+};
+
+/**
+ * @brief Debug image generated during blockage/dust detection.
+ *
+ * This is an alias for the merged blockage/dust visualization image.
+ */
+using BlockageDiagDebugImages = sensor_msgs::msg::Image;
+
+/**
+ * @brief Result of blockage diagnosis.
+ *
+ * This structure contains optional debug image.
+ */
+struct BlockageDiagResult
+{
+  std::optional<sensor_msgs::msg::Image> debug_image;
+  std_msgs::msg::Header header;
+};
 
 /**
  * @brief Quantize a 16-bit image to 8-bit.
@@ -137,7 +178,6 @@ private:
   /**
    * @brief Create debug image from detection results.
    *
-   * @param blockage_result Single-frame blockage detection result.
    * @param blockage_mask_multi_frame Multi-frame aggregated blockage mask.
    * @param dust_result Single-frame dust detection result (optional).
    * @param dust_mask_multi_frame Multi-frame aggregated dust mask (optional).
@@ -145,7 +185,7 @@ private:
    * @return BlockageDiagDebugImages (sensor_msgs::msg::Image) containing the merged debug visualization.
    */
   sensor_msgs::msg::Image create_debug_images(
-    const BlockageDetectionResult & blockage_result, const cv::Mat & blockage_mask_multi_frame,
+    const cv::Mat & blockage_mask_multi_frame,
     const std::optional<DustDetectionResult> & dust_result,
     const std::optional<cv::Mat> & dust_mask_multi_frame,
     const std_msgs::msg::Header & header) const;

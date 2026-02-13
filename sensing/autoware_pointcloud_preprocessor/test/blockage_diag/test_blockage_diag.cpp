@@ -202,7 +202,7 @@ TEST(BlockageDiagTest, BasicBlockageDetectionNoDustNoDebug)
   BlockageDiagResult result = diag.update(input);
 
   // Assert
-  EXPECT_FALSE(result.debug_images.has_value());
+  EXPECT_FALSE(result.debug_image.has_value());
 
   // Blockage diagnostic should be available through get_blockage_detection_diag()
   auto blockage_diag = diag.get_blockage_detection_diag();
@@ -225,7 +225,7 @@ TEST(BlockageDiagTest, DustDetectionEnabled)
   BlockageDiagResult result = diag.update(input);
 
   // Assert
-  EXPECT_FALSE(result.debug_images.has_value());
+  EXPECT_FALSE(result.debug_image.has_value());
 
   // Dust diagnostic should be available through get_dust_detection_diag()
   auto dust_diag = diag.get_dust_detection_diag();
@@ -245,12 +245,9 @@ TEST(BlockageDiagTest, DebugImagesGeneratedWithoutDust)
   BlockageDiagResult result = diag.update(input);
 
   // Assert
-  ASSERT_TRUE(result.debug_images.has_value());
-  EXPECT_FALSE(result.debug_images->blockage_mask_single_frame.data.empty());
-  EXPECT_FALSE(result.debug_images->blockage_mask_multi_frame.data.empty());
-  // Dust masks should be empty when dust detection is disabled
-  EXPECT_TRUE(result.debug_images->dust_mask_single_frame.data.empty());
-  EXPECT_TRUE(result.debug_images->dust_mask_multi_frame.data.empty());
+  ASSERT_TRUE(result.debug_image.has_value());
+  EXPECT_FALSE(result.debug_image->data.empty());
+  EXPECT_EQ(result.debug_image->encoding, "bgr8");
 }
 
 TEST(BlockageDiagTest, DebugImagesGeneratedWithDust)
@@ -265,14 +262,10 @@ TEST(BlockageDiagTest, DebugImagesGeneratedWithDust)
   BlockageDiagResult result = diag.update(input);
 
   // Assert
-  ASSERT_TRUE(result.debug_images.has_value());
-  EXPECT_FALSE(result.debug_images->blockage_mask_single_frame.data.empty());
-  EXPECT_FALSE(result.debug_images->blockage_mask_multi_frame.data.empty());
-  EXPECT_FALSE(result.debug_images->dust_mask_single_frame.data.empty());
-  EXPECT_FALSE(result.debug_images->dust_mask_multi_frame.data.empty());
-  EXPECT_FALSE(result.debug_images->blockage_dust_merged.data.empty());
+  ASSERT_TRUE(result.debug_image.has_value());
+  EXPECT_FALSE(result.debug_image->data.empty());
   // Check that merged image is BGR8 (3 channels, 8-bit)
-  EXPECT_EQ(result.debug_images->blockage_dust_merged.encoding, "bgr8");
+  EXPECT_EQ(result.debug_image->encoding, "bgr8");
 }
 
 TEST(BlockageDiagTest, InvalidPointCloudThrowsException)
@@ -320,8 +313,8 @@ TEST(BlockageDiagTest, MultiFrameProcessing)
     BlockageDiagResult result = diag.update(input);
 
     // Assert: Each frame produces valid results
-    ASSERT_TRUE(result.debug_images.has_value());
-    EXPECT_FALSE(result.debug_images->blockage_mask_multi_frame.data.empty());
+    ASSERT_TRUE(result.debug_image.has_value());
+    EXPECT_FALSE(result.debug_image->data.empty());
     EXPECT_EQ(result.header.stamp.sec, i);
   }
 }
