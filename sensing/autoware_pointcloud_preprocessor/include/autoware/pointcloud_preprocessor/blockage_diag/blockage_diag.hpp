@@ -15,10 +15,18 @@
 #ifndef AUTOWARE__POINTCLOUD_PREPROCESSOR__BLOCKAGE_DIAG__BLOCKAGE_DIAG_HPP_
 #define AUTOWARE__POINTCLOUD_PREPROCESSOR__BLOCKAGE_DIAG__BLOCKAGE_DIAG_HPP_
 
+#include "blockage_detection.hpp"
+#include "dust_detection.hpp"
+#include "multi_frame_detection_aggregator.hpp"
+#include "pointcloud2_to_depth_image.hpp"
+
 #include <opencv2/core/mat.hpp>
 
 #include <sensor_msgs/msg/point_cloud2.hpp>
+#include <std_msgs/msg/header.hpp>
 
+#include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -80,6 +88,119 @@ std::pair<cv::Mat, cv::Mat> segment_into_ground_and_sky(
  * @throws std::runtime_error if any required field is missing.
  */
 void validate_pointcloud_fields(const sensor_msgs::msg::PointCloud2 & input);
+
+/**
+ * @brief Configuration for the BlockageDiag class.
+ *
+ * This structure consolidates all configuration parameters needed for blockage and dust detection.
+ */
+struct BlockageDiagConfig
+{
+  pointcloud2_to_depth_image::ConverterConfig depth_converter_config;
+  BlockageDetectionConfig blockage_config;
+  MultiFrameDetectionAggregatorConfig blockage_aggregator_config;
+  bool enable_dust_detection;
+  DustDetectionConfig dust_config;
+  MultiFrameDetectionAggregatorConfig dust_aggregator_config;
+  bool enable_debug_output;
+};
+
+/**
+ * @brief Debug images generated during blockage/dust detection.
+ *
+ * This structure contains various masks and visualizations for debugging purposes.
+ */
+struct BlockageDiagDebugImages
+{
+  cv::Mat blockage_mask_single_frame;
+  cv::Mat blockage_mask_multi_frame;
+  cv::Mat dust_mask_single_frame;
+  cv::Mat dust_mask_multi_frame;
+  cv::Mat blockage_dust_merged;
+};
+
+/**
+ * @brief Result of blockage diagnosis.
+ *
+ * This structure contains diagnostic outputs and optional debug images.
+ */
+struct BlockageDiagResult
+{
+  DiagnosticOutput blockage_diagnostic;
+  std::optional<DiagnosticOutput> dust_diagnostic;
+  std::optional<BlockageDiagDebugImages> debug_images;
+  std_msgs::msg::Header header;
+};
+
+/**
+ * @brief Facade class for blockage and dust detection.
+ *
+ * This class encapsulates all blockage/dust detection logic and provides a simple interface
+ * that is independent of ROS node implementation. It coordinates depth image conversion,
+ * blockage detection, dust detection, and multi-frame aggregation.
+ */
+class BlockageDiag
+{
+public:
+  /**
+   * @brief Constructor.
+   *
+   * @param config Configuration parameters for all detection components.
+   */
+  explicit BlockageDiag(const BlockageDiagConfig & config);
+
+  /**
+   * @brief Process a point cloud and perform blockage/dust diagnosis.
+   *
+   * This method validates the input, converts it to a depth image, runs detection algorithms,
+   * and returns comprehensive diagnostic results.
+   *
+   * @param input The input point cloud message.
+   * @return BlockageDiagResult containing diagnostics and optional debug images.
+   * @throws std::runtime_error if point cloud validation fails.
+   */
+  BlockageDiagResult update(const sensor_msgs::msg::PointCloud2 & input);
+
+  /**
+   * @brief Check if dust detection is enabled.
+   *
+   * @return true if dust detection is enabled, false otherwise.
+   */
+  bool is_dust_detection_enabled() const;
+
+  /**
+   * @brief Check if debug output is enabled.
+   *
+   * @return true if debug output is enabled, false otherwise.
+   */
+  bool is_debug_output_enabled() const;
+
+private:
+  BlockageDiagConfig config_;
+
+  // Core components
+  std::unique_ptr<pointcloud2_to_depth_image::PointCloud2ToDepthImage> depth_converter_;
+  std::unique_ptr<BlockageDetector> blockage_detector_;
+  std::unique_ptr<MultiFrameDetectionAggregator> blockage_aggregator_;
+
+  // Optional dust detection components
+  std::unique_ptr<DustDetector> dust_detector_;
+  std::unique_ptr<MultiFrameDetectionAggregator> dust_aggregator_;
+
+  /**
+   * @brief Create debug images from detection results.
+   *
+   * @param blockage_result Single-frame blockage detection result.
+   * @param blockage_mask_multi_frame Multi-frame aggregated blockage mask.
+   * @param dust_result Single-frame dust detection result (optional).
+   * @param dust_mask_multi_frame Multi-frame aggregated dust mask (optional).
+   * @return BlockageDiagDebugImages containing all debug visualizations.
+   */
+  BlockageDiagDebugImages create_debug_images(
+    const BlockageDetectionResult & blockage_result, const cv::Mat & blockage_mask_multi_frame,
+    const std::optional<DustDetectionResult> & dust_result,
+    const std::optional<cv::Mat> & dust_mask_multi_frame) const;
+};
 
 }  // namespace autoware::pointcloud_preprocessor
 

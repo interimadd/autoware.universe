@@ -115,6 +115,223 @@ TEST(MultiFrameDetectionAggregatorTest, AllPixelsConsistentTest)
   EXPECT_EQ(cv::countNonZero(result), total_pixels);
 }
 
+// Helper function to create test configuration
+BlockageDiagConfig create_test_config(
+  bool enable_dust = false, bool enable_debug = false)
+{
+  BlockageDiagConfig config;
+
+  // Depth converter config
+  config.depth_converter_config.horizontal.angle_range_min_deg = -180.0;
+  config.depth_converter_config.horizontal.angle_range_max_deg = 180.0;
+  config.depth_converter_config.horizontal.horizontal_resolution = 0.4;
+  config.depth_converter_config.vertical.vertical_bins = 128;
+  config.depth_converter_config.vertical.is_channel_order_top2down = true;
+  config.depth_converter_config.max_distance_range = 200.0;
+
+  // Blockage detection config
+  config.blockage_config.blockage_ratio_threshold = 0.5f;
+  config.blockage_config.blockage_count_threshold = 5;
+  config.blockage_config.blockage_kernel = 3;
+  config.blockage_config.horizontal_ring_id = 64;
+  config.blockage_config.horizontal_resolution = 0.4;
+  config.blockage_config.angle_range_min_deg = -180.0;
+  config.blockage_config.angle_range_max_deg = 180.0;
+
+  // Blockage aggregator config
+  config.blockage_aggregator_config.buffering_frames = 3;
+  config.blockage_aggregator_config.buffering_interval = 1;
+
+  // Dust config
+  config.enable_dust_detection = enable_dust;
+  if (enable_dust) {
+    config.dust_config.dust_ratio_threshold = 0.5f;
+    config.dust_config.dust_count_threshold = 5;
+    config.dust_config.dust_kernel_size = 3;
+    config.dust_config.horizontal_ring_id = 64;
+    config.dust_aggregator_config.buffering_frames = 3;
+    config.dust_aggregator_config.buffering_interval = 1;
+  }
+
+  // Debug config
+  config.enable_debug_output = enable_debug;
+
+  return config;
+}
+
+// Helper function to create test point cloud
+sensor_msgs::msg::PointCloud2 create_test_pointcloud()
+{
+  sensor_msgs::msg::PointCloud2 cloud;
+  sensor_msgs::PointCloud2Modifier modifier(cloud);
+  modifier.setPointCloud2Fields(
+    3, "channel", 1, sensor_msgs::msg::PointField::UINT16, "azimuth", 1,
+    sensor_msgs::msg::PointField::FLOAT32, "distance", 1, sensor_msgs::msg::PointField::FLOAT32);
+
+  // Create a simple point cloud with 100 points
+  modifier.resize(100);
+
+  sensor_msgs::PointCloud2Iterator<uint16_t> iter_channel(cloud, "channel");
+  sensor_msgs::PointCloud2Iterator<float> iter_azimuth(cloud, "azimuth");
+  sensor_msgs::PointCloud2Iterator<float> iter_distance(cloud, "distance");
+
+  for (size_t i = 0; i < 100; ++i, ++iter_channel, ++iter_azimuth, ++iter_distance) {
+    *iter_channel = static_cast<uint16_t>(i % 128);  // Channel in range [0, 127]
+    *iter_azimuth = static_cast<float>(i * 0.1);  // Azimuth in radians
+    *iter_distance = 10.0f + static_cast<float>(i) * 0.5f;  // Distance in meters
+  }
+
+  return cloud;
+}
+
+TEST(BlockageDiagTest, ConstructorInitializesComponents)
+{
+  BlockageDiagConfig config = create_test_config();
+  EXPECT_NO_THROW({ BlockageDiag diag(config); });
+}
+
+TEST(BlockageDiagTest, BasicBlockageDetectionNoDustNoDebug)
+{
+  // Arrange: Create config with blockage enabled, dust and debug disabled
+  BlockageDiagConfig config = create_test_config(false, false);
+  BlockageDiag diag(config);
+
+  sensor_msgs::msg::PointCloud2 input = create_test_pointcloud();
+
+  // Act
+  BlockageDiagResult result = diag.update(input);
+
+  // Assert
+  EXPECT_FALSE(result.dust_diagnostic.has_value());
+  EXPECT_FALSE(result.debug_images.has_value());
+  EXPECT_FALSE(result.blockage_diagnostic.message.empty());
+}
+
+TEST(BlockageDiagTest, DustDetectionEnabled)
+{
+  // Arrange
+  BlockageDiagConfig config = create_test_config(true, false);
+  BlockageDiag diag(config);
+
+  sensor_msgs::msg::PointCloud2 input = create_test_pointcloud();
+
+  // Act
+  BlockageDiagResult result = diag.update(input);
+
+  // Assert
+  EXPECT_TRUE(result.dust_diagnostic.has_value());
+  EXPECT_FALSE(result.dust_diagnostic->message.empty());
+  EXPECT_FALSE(result.debug_images.has_value());
+}
+
+TEST(BlockageDiagTest, DebugImagesGeneratedWithoutDust)
+{
+  // Arrange
+  BlockageDiagConfig config = create_test_config(false, true);
+  BlockageDiag diag(config);
+
+  sensor_msgs::msg::PointCloud2 input = create_test_pointcloud();
+
+  // Act
+  BlockageDiagResult result = diag.update(input);
+
+  // Assert
+  ASSERT_TRUE(result.debug_images.has_value());
+  EXPECT_FALSE(result.debug_images->blockage_mask_single_frame.empty());
+  EXPECT_FALSE(result.debug_images->blockage_mask_multi_frame.empty());
+  // Dust masks should be empty when dust detection is disabled
+  EXPECT_TRUE(result.debug_images->dust_mask_single_frame.empty());
+  EXPECT_TRUE(result.debug_images->dust_mask_multi_frame.empty());
+}
+
+TEST(BlockageDiagTest, DebugImagesGeneratedWithDust)
+{
+  // Arrange
+  BlockageDiagConfig config = create_test_config(true, true);
+  BlockageDiag diag(config);
+
+  sensor_msgs::msg::PointCloud2 input = create_test_pointcloud();
+
+  // Act
+  BlockageDiagResult result = diag.update(input);
+
+  // Assert
+  ASSERT_TRUE(result.debug_images.has_value());
+  EXPECT_FALSE(result.debug_images->blockage_mask_single_frame.empty());
+  EXPECT_FALSE(result.debug_images->blockage_mask_multi_frame.empty());
+  EXPECT_FALSE(result.debug_images->dust_mask_single_frame.empty());
+  EXPECT_FALSE(result.debug_images->dust_mask_multi_frame.empty());
+  EXPECT_FALSE(result.debug_images->blockage_dust_merged.empty());
+  // Check that merged image is RGB
+  EXPECT_EQ(result.debug_images->blockage_dust_merged.type(), CV_8UC3);
+}
+
+TEST(BlockageDiagTest, InvalidPointCloudThrowsException)
+{
+  // Arrange
+  BlockageDiagConfig config = create_test_config();
+  BlockageDiag diag(config);
+
+  sensor_msgs::msg::PointCloud2 invalid_input;  // Missing required fields
+
+  // Act & Assert
+  EXPECT_THROW({ diag.update(invalid_input); }, std::runtime_error);
+}
+
+TEST(BlockageDiagTest, HeaderIsPreserved)
+{
+  // Arrange
+  BlockageDiagConfig config = create_test_config();
+  BlockageDiag diag(config);
+
+  sensor_msgs::msg::PointCloud2 input = create_test_pointcloud();
+  input.header.frame_id = "lidar_frame";
+  input.header.stamp.sec = 12345;
+  input.header.stamp.nanosec = 67890;
+
+  // Act
+  BlockageDiagResult result = diag.update(input);
+
+  // Assert
+  EXPECT_EQ(result.header.frame_id, "lidar_frame");
+  EXPECT_EQ(result.header.stamp.sec, 12345);
+  EXPECT_EQ(result.header.stamp.nanosec, 67890);
+}
+
+TEST(BlockageDiagTest, ConfigQueryMethods)
+{
+  // Test with dust disabled
+  BlockageDiagConfig config1 = create_test_config(false, false);
+  BlockageDiag diag1(config1);
+  EXPECT_FALSE(diag1.is_dust_detection_enabled());
+  EXPECT_FALSE(diag1.is_debug_output_enabled());
+
+  // Test with dust and debug enabled
+  BlockageDiagConfig config2 = create_test_config(true, true);
+  BlockageDiag diag2(config2);
+  EXPECT_TRUE(diag2.is_dust_detection_enabled());
+  EXPECT_TRUE(diag2.is_debug_output_enabled());
+}
+
+TEST(BlockageDiagTest, MultiFrameProcessing)
+{
+  // Arrange
+  BlockageDiagConfig config = create_test_config(false, true);
+  BlockageDiag diag(config);
+
+  // Act: Send multiple frames
+  for (int i = 0; i < 5; ++i) {
+    sensor_msgs::msg::PointCloud2 input = create_test_pointcloud();
+    input.header.stamp.sec = i;
+    BlockageDiagResult result = diag.update(input);
+
+    // Assert: Each frame produces valid results
+    ASSERT_TRUE(result.debug_images.has_value());
+    EXPECT_FALSE(result.debug_images->blockage_mask_multi_frame.empty());
+    EXPECT_EQ(result.header.stamp.sec, i);
+  }
+}
+
 int main(int argc, char ** argv)
 {
   testing::InitGoogleTest(&argc, argv);

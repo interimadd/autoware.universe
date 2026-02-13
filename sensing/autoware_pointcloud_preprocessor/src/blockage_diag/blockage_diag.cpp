@@ -88,4 +88,97 @@ void validate_pointcloud_fields(const sensor_msgs::msg::PointCloud2 & input)
   throw std::runtime_error(error_msg);
 }
 
+BlockageDiag::BlockageDiag(const BlockageDiagConfig & config) : config_(config)
+{
+  // Initialize depth converter
+  depth_converter_ =
+    std::make_unique<pointcloud2_to_depth_image::PointCloud2ToDepthImage>(
+      config_.depth_converter_config);
+
+  // Initialize blockage detector and aggregator
+  blockage_detector_ = std::make_unique<BlockageDetector>(config_.blockage_config);
+  blockage_aggregator_ =
+    std::make_unique<MultiFrameDetectionAggregator>(config_.blockage_aggregator_config);
+
+  // Initialize dust detector and aggregator if enabled
+  if (config_.enable_dust_detection) {
+    dust_detector_ = std::make_unique<DustDetector>(config_.dust_config);
+    dust_aggregator_ =
+      std::make_unique<MultiFrameDetectionAggregator>(config_.dust_aggregator_config);
+  }
+}
+
+BlockageDiagResult BlockageDiag::update(const sensor_msgs::msg::PointCloud2 & input)
+{
+  // Validate input
+  validate_pointcloud_fields(input);
+
+  BlockageDiagResult result;
+  result.header = input.header;
+
+  // Convert to depth image
+  cv::Mat depth_image_16u = depth_converter_->make_normalized_depth_image(input);
+
+  // Blockage detection
+  BlockageDetectionResult blockage_result =
+    blockage_detector_->compute_blockage_diagnostics(depth_image_16u);
+  cv::Mat blockage_mask_multi_frame = blockage_aggregator_->update(blockage_result.blockage_mask);
+  result.blockage_diagnostic = blockage_detector_->get_blockage_diagnostics_output();
+
+  // Dust detection (optional)
+  std::optional<DustDetectionResult> dust_result;
+  std::optional<cv::Mat> dust_mask_multi_frame;
+  if (config_.enable_dust_detection && dust_detector_) {
+    dust_result = dust_detector_->compute_dust_diagnostics(depth_image_16u);
+    dust_mask_multi_frame = dust_aggregator_->update(dust_result->dust_mask);
+    result.dust_diagnostic = dust_detector_->get_dust_diagnostics_output();
+  }
+
+  // Generate debug images (optional)
+  if (config_.enable_debug_output) {
+    result.debug_images =
+      create_debug_images(blockage_result, blockage_mask_multi_frame, dust_result, dust_mask_multi_frame);
+  }
+
+  return result;
+}
+
+bool BlockageDiag::is_dust_detection_enabled() const
+{
+  return config_.enable_dust_detection;
+}
+
+bool BlockageDiag::is_debug_output_enabled() const
+{
+  return config_.enable_debug_output;
+}
+
+BlockageDiagDebugImages BlockageDiag::create_debug_images(
+  const BlockageDetectionResult & blockage_result, const cv::Mat & blockage_mask_multi_frame,
+  const std::optional<DustDetectionResult> & dust_result,
+  const std::optional<cv::Mat> & dust_mask_multi_frame) const
+{
+  BlockageDiagDebugImages images;
+
+  // Blockage masks
+  images.blockage_mask_single_frame = blockage_result.blockage_mask;
+  images.blockage_mask_multi_frame = blockage_mask_multi_frame;
+
+  // Dust masks and merged visualization (if dust detection is enabled)
+  if (dust_result.has_value() && dust_mask_multi_frame.has_value()) {
+    images.dust_mask_single_frame = dust_result->dust_mask;
+    images.dust_mask_multi_frame = dust_mask_multi_frame.value();
+
+    // Create merged visualization: red for blockage, yellow for dust
+    auto dimensions = blockage_mask_multi_frame.size();
+    images.blockage_dust_merged = cv::Mat(dimensions, CV_8UC3, cv::Scalar(0, 0, 0));
+    images.blockage_dust_merged.setTo(
+      cv::Vec3b(0, 0, 255), blockage_mask_multi_frame);  // red: blockage
+    images.blockage_dust_merged.setTo(
+      cv::Vec3b(0, 255, 255), dust_mask_multi_frame.value());  // yellow: dust
+  }
+
+  return images;
+}
+
 }  // namespace autoware::pointcloud_preprocessor
