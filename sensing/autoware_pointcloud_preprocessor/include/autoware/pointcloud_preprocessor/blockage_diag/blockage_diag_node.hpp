@@ -77,13 +77,13 @@ private:
   void run_dust_check(DiagnosticStatusWrapper & stat) const;
 
   /**
-   * @brief Publish debug images if available.
+   * @brief Publish debug image if available.
    *
-   * Images already have headers set by BlockageDiag.
+   * Image already has header set by BlockageDiag.
    *
-   * @param debug_images The debug images to publish.
+   * @param debug_image The debug image to publish.
    */
-  void publish_debug_images(const BlockageDiagDebugImages & debug_images);
+  void publish_debug_images(const BlockageDiagDebugImages & debug_image);
 
 public:
   explicit BlockageDiagComponent(const rclcpp::NodeOptions & options);

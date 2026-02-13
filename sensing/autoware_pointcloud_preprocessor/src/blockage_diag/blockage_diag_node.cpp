@@ -129,11 +129,11 @@ void BlockageDiagComponent::run_dust_check(diagnostic_updater::DiagnosticStatusW
   }
 }
 
-void BlockageDiagComponent::publish_debug_images(const BlockageDiagDebugImages & debug_images)
+void BlockageDiagComponent::publish_debug_images(const BlockageDiagDebugImages & debug_image)
 {
-  // blockage_dust_merged is the main debug visualization (header already set)
-  if (!debug_images.blockage_dust_merged.data.empty()) {
-    auto msg = std::make_shared<sensor_msgs::msg::Image>(debug_images.blockage_dust_merged);
+  // Publish the merged blockage/dust visualization (header already set)
+  if (!debug_image.data.empty()) {
+    auto msg = std::make_shared<sensor_msgs::msg::Image>(debug_image);
     blockage_dust_merged_pub_.publish(msg);
   }
 }

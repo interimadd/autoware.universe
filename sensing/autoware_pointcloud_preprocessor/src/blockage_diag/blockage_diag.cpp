@@ -141,9 +141,9 @@ BlockageDiagResult BlockageDiag::update(const sensor_msgs::msg::PointCloud2 & in
     dust_mask_multi_frame = dust_aggregator_->update(dust_result->dust_mask);
   }
 
-  // Generate debug images (optional)
+  // Generate debug image (optional)
   if (config_.enable_debug_output) {
-    result.debug_images = create_debug_images(
+    result.debug_image = create_debug_images(
       blockage_result, blockage_mask_multi_frame, dust_result, dust_mask_multi_frame, input.header);
   }
 
@@ -174,42 +174,27 @@ DiagnosticOutput BlockageDiag::get_dust_detection_diag() const
 
 BlockageDiagDebugImages BlockageDiag::get_debug_images() const
 {
-  if (!latest_result_.has_value() || !latest_result_->debug_images.has_value()) {
-    return BlockageDiagDebugImages();
+  if (!latest_result_.has_value() || !latest_result_->debug_image.has_value()) {
+    return sensor_msgs::msg::Image();
   }
-  return latest_result_->debug_images.value();
+  return latest_result_->debug_image.value();
 }
 
-BlockageDiagDebugImages BlockageDiag::create_debug_images(
+sensor_msgs::msg::Image BlockageDiag::create_debug_images(
   const BlockageDetectionResult & blockage_result, const cv::Mat & blockage_mask_multi_frame,
   const std::optional<DustDetectionResult> & dust_result,
   const std::optional<cv::Mat> & dust_mask_multi_frame, const std_msgs::msg::Header & header) const
 {
-  BlockageDiagDebugImages images;
+  // Create merged visualization: red for blockage, yellow for dust (if enabled)
+  auto dimensions = blockage_mask_multi_frame.size();
+  cv::Mat merged_img(dimensions, CV_8UC3, cv::Scalar(0, 0, 0));
+  merged_img.setTo(cv::Vec3b(0, 0, 255), blockage_mask_multi_frame);  // red: blockage
 
-  // Convert blockage masks to ROS Image messages
-  images.blockage_mask_single_frame =
-    *cv_bridge::CvImage(header, "mono8", blockage_result.blockage_mask).toImageMsg();
-  images.blockage_mask_multi_frame =
-    *cv_bridge::CvImage(header, "mono8", blockage_mask_multi_frame).toImageMsg();
-
-  // Dust masks and merged visualization (if dust detection is enabled)
   if (dust_result.has_value() && dust_mask_multi_frame.has_value()) {
-    images.dust_mask_single_frame =
-      *cv_bridge::CvImage(header, "mono8", dust_result->dust_mask).toImageMsg();
-    images.dust_mask_multi_frame =
-      *cv_bridge::CvImage(header, "mono8", dust_mask_multi_frame.value()).toImageMsg();
-
-    // Create merged visualization: red for blockage, yellow for dust
-    auto dimensions = blockage_mask_multi_frame.size();
-    cv::Mat merged_img(dimensions, CV_8UC3, cv::Scalar(0, 0, 0));
-    merged_img.setTo(cv::Vec3b(0, 0, 255), blockage_mask_multi_frame);  // red: blockage
     merged_img.setTo(cv::Vec3b(0, 255, 255), dust_mask_multi_frame.value());  // yellow: dust
-    images.blockage_dust_merged =
-      *cv_bridge::CvImage(header, "bgr8", merged_img).toImageMsg();
   }
 
-  return images;
+  return *cv_bridge::CvImage(header, "bgr8", merged_img).toImageMsg();
 }
 
 }  // namespace autoware::pointcloud_preprocessor

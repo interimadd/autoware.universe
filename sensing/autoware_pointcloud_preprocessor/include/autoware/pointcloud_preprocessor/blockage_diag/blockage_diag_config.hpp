@@ -48,28 +48,20 @@ struct BlockageDiagConfig
 };
 
 /**
- * @brief Debug images generated during blockage/dust detection.
+ * @brief Debug image generated during blockage/dust detection.
  *
- * This structure contains various masks and visualizations for debugging purposes.
- * Images are stored as ROS sensor_msgs::msg::Image for direct publishing.
+ * This is an alias for the merged blockage/dust visualization image.
  */
-struct BlockageDiagDebugImages
-{
-  sensor_msgs::msg::Image blockage_mask_single_frame;
-  sensor_msgs::msg::Image blockage_mask_multi_frame;
-  sensor_msgs::msg::Image dust_mask_single_frame;
-  sensor_msgs::msg::Image dust_mask_multi_frame;
-  sensor_msgs::msg::Image blockage_dust_merged;
-};
+using BlockageDiagDebugImages = sensor_msgs::msg::Image;
 
 /**
  * @brief Result of blockage diagnosis.
  *
- * This structure contains optional debug images.
+ * This structure contains optional debug image.
  */
 struct BlockageDiagResult
 {
-  std::optional<BlockageDiagDebugImages> debug_images;
+  std::optional<sensor_msgs::msg::Image> debug_image;
   std_msgs::msg::Header header;
 };
 
