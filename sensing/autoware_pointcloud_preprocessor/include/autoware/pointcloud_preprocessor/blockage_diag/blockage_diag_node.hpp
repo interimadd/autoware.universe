@@ -15,20 +15,13 @@
 #ifndef AUTOWARE__POINTCLOUD_PREPROCESSOR__BLOCKAGE_DIAG__BLOCKAGE_DIAG_NODE_HPP_
 #define AUTOWARE__POINTCLOUD_PREPROCESSOR__BLOCKAGE_DIAG__BLOCKAGE_DIAG_NODE_HPP_
 
-#include "autoware/pointcloud_preprocessor/blockage_diag/blockage_detection.hpp"
-#include "autoware/pointcloud_preprocessor/blockage_diag/dust_detection.hpp"
-#include "autoware/pointcloud_preprocessor/blockage_diag/multi_frame_detection_aggregator.hpp"
-#include "autoware/pointcloud_preprocessor/blockage_diag/pointcloud2_to_depth_image.hpp"
+#include "autoware/pointcloud_preprocessor/blockage_diag/blockage_diag.hpp"
 
 #include <diagnostic_updater/diagnostic_updater.hpp>
 #include <image_transport/image_transport.hpp>
-#include <opencv2/core/mat.hpp>
 #include <rclcpp/rclcpp.hpp>
 
-#include <autoware_internal_debug_msgs/msg/float32_stamped.hpp>
-#include <autoware_internal_debug_msgs/msg/string_stamped.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
-#include <std_msgs/msg/header.hpp>
 
 #if __has_include(<cv_bridge/cv_bridge.hpp>)
 #include <cv_bridge/cv_bridge.hpp>
@@ -37,7 +30,7 @@
 #endif
 
 #include <memory>
-#include <utility>
+#include <optional>
 #include <vector>
 
 namespace autoware::pointcloud_preprocessor
@@ -53,40 +46,47 @@ private:
 
   /** \brief Parameter service callback */
   rcl_interfaces::msg::SetParametersResult param_callback(const std::vector<rclcpp::Parameter> & p);
-  image_transport::Publisher blockage_dust_merged_pub;
 
+  // ROS-specific components
+  Updater updater_{this};
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr pointcloud_sub_;
+  image_transport::Publisher blockage_dust_merged_pub_;
+
+  // Core blockage diagnosis engine (ROS-independent)
+  std::unique_ptr<BlockageDiag> blockage_diag_;
+
+  // Cached latest diagnostic result for updater callbacks
+  std::optional<BlockageDiagResult> latest_result_;
+
+  /**
+   * @brief Main callback that processes incoming point cloud data.
+   *
+   * @param input The input point cloud message.
+   */
   void update_diagnostics(const sensor_msgs::msg::PointCloud2::ConstSharedPtr & input);
+
+  /**
+   * @brief Diagnostic updater callback for blockage validation.
+   *
+   * @param stat The diagnostic status wrapper to populate.
+   */
   void run_blockage_check(DiagnosticStatusWrapper & stat) const;
+
+  /**
+   * @brief Diagnostic updater callback for dust validation.
+   *
+   * @param stat The diagnostic status wrapper to populate.
+   */
   void run_dust_check(DiagnosticStatusWrapper & stat) const;
 
   /**
-   * @brief Publish the debug info of dust diagnostics if enabled.
+   * @brief Publish debug images if available.
    *
-   * @param dust_result The dust detection result.
-   * @param input_header The header of the input point cloud.
-   * @param blockage_mask_multi_frame The multi-frame blockage mask.
+   * @param debug_images The debug images to publish.
+   * @param header The header for the published images.
    */
-  void publish_dust_debug_info(
-    const DustDetectionResult & dust_result, const std_msgs::msg::Header & input_header,
-    const cv::Mat & blockage_mask_multi_frame);
-
-  Updater updater_{this};
-
-  // PointCloud2 to depth image converter
-  std::unique_ptr<pointcloud2_to_depth_image::PointCloud2ToDepthImage> depth_image_converter_;
-
-  // Debug parameters
-  bool publish_debug_image_;
-
-  // Blockage detection
-  std::unique_ptr<BlockageDetector> blockage_detector_;
-  std::unique_ptr<MultiFrameDetectionAggregator> blockage_aggregator_;
-
-  // Dust detection
-  bool enable_dust_diag_;
-  std::unique_ptr<DustDetector> dust_detector_;
-  std::unique_ptr<MultiFrameDetectionAggregator> dust_aggregator_;
+  void publish_debug_images(
+    const BlockageDiagDebugImages & debug_images, const std_msgs::msg::Header & header);
 
 public:
   explicit BlockageDiagComponent(const rclcpp::NodeOptions & options);
