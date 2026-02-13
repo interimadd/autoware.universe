@@ -14,14 +14,81 @@
 
 #include "autoware/pointcloud_preprocessor/blockage_diag/dust_detection.hpp"
 
-#include "autoware/pointcloud_preprocessor/blockage_diag/blockage_diag.hpp"
-
 #include <opencv2/imgproc.hpp>
 
 #include <string>
+#include <utility>
 
 namespace autoware::pointcloud_preprocessor
 {
+
+namespace
+{
+
+/**
+ * @brief Quantize a 16-bit image to 8-bit.
+ *
+ * The values are scaled by `1.0 / 256` to prevent overflow.
+ *
+ * @param image_16u The input 16-bit image.
+ * @return cv::Mat The quantized 8-bit image. The data type is `CV_8UC1`.
+ */
+cv::Mat quantize_to_8u(const cv::Mat & image_16u)
+{
+  assert(image_16u.type() == CV_16UC1);
+  auto dimensions = image_16u.size();
+
+  cv::Mat image_8u(dimensions, CV_8UC1, cv::Scalar(0));
+  // UINT16_MAX = 65535, UINT8_MAX = 255, so downscale by ceil(65535 / 255) = 256.
+  image_16u.convertTo(image_8u, CV_8UC1, 1.0 / 256);
+  return image_8u;
+}
+
+/**
+ * @brief Make a no-return mask from the input depth image.
+ *
+ * The mask is a binary image where 255 is no-return and 0 is return.
+ *
+ * @param depth_image The input depth image.
+ * @return cv::Mat The no-return mask. The data type is `CV_8UC1`.
+ */
+cv::Mat make_no_return_mask(const cv::Mat & depth_image)
+{
+  assert(depth_image.type() == CV_8UC1);
+  auto dimensions = depth_image.size();
+
+  cv::Mat no_return_mask(dimensions, CV_8UC1, cv::Scalar(0));
+  cv::inRange(depth_image, 0, 1, no_return_mask);
+
+  return no_return_mask;
+}
+
+/**
+ * @brief Segments a given mask into two masks, according to the ground/sky segmentation
+ * parameters.
+ *
+ * @param mask The input mask. The data type is `CV_8UC1`.
+ * @param horizontal_ring_id The ring ID that separates ground and sky.
+ * @return std::pair<cv::Mat, cv::Mat> The pair {ground_mask, sky_mask}. The data type is
+ * `CV_8UC1`.
+ */
+std::pair<cv::Mat, cv::Mat> segment_into_ground_and_sky(
+  const cv::Mat & mask, int horizontal_ring_id)
+{
+  assert(mask.type() == CV_8UC1);
+  auto dimensions = mask.size();
+
+  cv::Mat sky_mask;
+  mask(cv::Rect(0, 0, dimensions.width, horizontal_ring_id)).copyTo(sky_mask);
+
+  cv::Mat ground_mask;
+  mask(cv::Rect(0, horizontal_ring_id, dimensions.width, dimensions.height - horizontal_ring_id))
+    .copyTo(ground_mask);
+
+  return {ground_mask, sky_mask};
+}
+
+}  // namespace
 
 DustDetector::DustDetector(const DustDetectionConfig & config) : config_(config)
 {
