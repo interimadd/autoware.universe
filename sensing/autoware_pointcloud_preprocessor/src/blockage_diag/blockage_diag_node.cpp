@@ -42,14 +42,6 @@ BlockageDiagComponent::BlockageDiagComponent(const rclcpp::NodeOptions & options
   double max_distance_range = declare_parameter<double>("max_distance_range");
   int horizontal_ring_id = declare_parameter<int>("horizontal_ring_id");
 
-  // Validate parameters
-  if (vertical_bins <= horizontal_ring_id) {
-    RCLCPP_ERROR(
-      this->get_logger(),
-      "The horizontal_ring_id should be smaller than vertical_bins. Skip blockage diag!");
-    return;
-  }
-
   // Depth converter config
   config.depth_converter_config.horizontal.angle_range_min_deg = angle_range_deg[0];
   config.depth_converter_config.horizontal.angle_range_max_deg = angle_range_deg[1];
