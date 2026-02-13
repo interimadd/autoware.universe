@@ -53,18 +53,7 @@ private:
 
   /** \brief Parameter service callback */
   rcl_interfaces::msg::SetParametersResult param_callback(const std::vector<rclcpp::Parameter> & p);
-  image_transport::Publisher lidar_depth_map_pub_;
-  image_transport::Publisher blockage_mask_pub_;
-  image_transport::Publisher single_frame_dust_mask_pub;
-  image_transport::Publisher multi_frame_dust_mask_pub;
   image_transport::Publisher blockage_dust_merged_pub;
-  rclcpp::Publisher<autoware_internal_debug_msgs::msg::Float32Stamped>::SharedPtr
-    ground_blockage_ratio_pub_;
-  rclcpp::Publisher<autoware_internal_debug_msgs::msg::Float32Stamped>::SharedPtr
-    sky_blockage_ratio_pub_;
-  rclcpp::Publisher<autoware_internal_debug_msgs::msg::Float32Stamped>::SharedPtr
-    ground_dust_ratio_pub_;
-  rclcpp::Publisher<autoware_internal_debug_msgs::msg::StringStamped>::SharedPtr blockage_type_pub_;
 
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr pointcloud_sub_;
   void update_diagnostics(const sensor_msgs::msg::PointCloud2::ConstSharedPtr & input);

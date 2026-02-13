@@ -112,28 +112,9 @@ BlockageDiagComponent::BlockageDiagComponent(const rclcpp::NodeOptions & options
   }
 
   // Publishers setup
-  if (publish_debug_image_) {
-    lidar_depth_map_pub_ =
-      image_transport::create_publisher(this, "blockage_diag/debug/lidar_depth_map");
-    blockage_mask_pub_ =
-      image_transport::create_publisher(this, "blockage_diag/debug/blockage_mask_image");
-  }
-  ground_blockage_ratio_pub_ = create_publisher<autoware_internal_debug_msgs::msg::Float32Stamped>(
-    "blockage_diag/debug/ground_blockage_ratio", rclcpp::SensorDataQoS());
-  sky_blockage_ratio_pub_ = create_publisher<autoware_internal_debug_msgs::msg::Float32Stamped>(
-    "blockage_diag/debug/sky_blockage_ratio", rclcpp::SensorDataQoS());
-
-  if (enable_dust_diag_) {
-    ground_dust_ratio_pub_ = create_publisher<autoware_internal_debug_msgs::msg::Float32Stamped>(
-      "blockage_diag/debug/ground_dust_ratio", rclcpp::SensorDataQoS());
-    if (publish_debug_image_) {
-      single_frame_dust_mask_pub =
-        image_transport::create_publisher(this, "blockage_diag/debug/single_frame_dust_mask_image");
-      multi_frame_dust_mask_pub =
-        image_transport::create_publisher(this, "blockage_diag/debug/multi_frame_dust_mask_image");
-      blockage_dust_merged_pub =
-        image_transport::create_publisher(this, "blockage_diag/debug/blockage_dust_merged_image");
-    }
+  if (enable_dust_diag_ && publish_debug_image_) {
+    blockage_dust_merged_pub =
+      image_transport::create_publisher(this, "blockage_diag/debug/blockage_dust_merged_image");
   }
 
   // Subscriber setup
