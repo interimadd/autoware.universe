@@ -15,7 +15,7 @@
 #ifndef AUTOWARE__POINTCLOUD_PREPROCESSOR__BLOCKAGE_DIAG__BLOCKAGE_DETECTION_HPP_
 #define AUTOWARE__POINTCLOUD_PREPROCESSOR__BLOCKAGE_DIAG__BLOCKAGE_DETECTION_HPP_
 
-#include "autoware/pointcloud_preprocessor/blockage_diag/blockage_diag.hpp"
+#include "autoware/pointcloud_preprocessor/blockage_diag/blockage_diag_types.hpp"
 
 #include <opencv2/core/mat.hpp>
 

@@ -15,39 +15,18 @@
 #ifndef AUTOWARE__POINTCLOUD_PREPROCESSOR__BLOCKAGE_DIAG__BLOCKAGE_DIAG_HPP_
 #define AUTOWARE__POINTCLOUD_PREPROCESSOR__BLOCKAGE_DIAG__BLOCKAGE_DIAG_HPP_
 
-#include "blockage_detection.hpp"
-#include "dust_detection.hpp"
-#include "multi_frame_detection_aggregator.hpp"
-#include "pointcloud2_to_depth_image.hpp"
+#include "blockage_diag_types.hpp"
 
 #include <opencv2/core/mat.hpp>
 
 #include <sensor_msgs/msg/point_cloud2.hpp>
-#include <std_msgs/msg/header.hpp>
 
-#include <memory>
-#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
 
 namespace autoware::pointcloud_preprocessor
 {
-
-enum DiagnosticLevel { OK, WARN, ERROR, STALE };
-
-struct DiagnosticAdditionalData
-{
-  std::string key;
-  std::string value;
-};
-
-struct DiagnosticOutput
-{
-  DiagnosticLevel level;
-  std::string message;
-  std::vector<DiagnosticAdditionalData> additional_data;
-};
 
 /**
  * @brief Quantize a 16-bit image to 8-bit.
@@ -89,48 +68,14 @@ std::pair<cv::Mat, cv::Mat> segment_into_ground_and_sky(
  */
 void validate_pointcloud_fields(const sensor_msgs::msg::PointCloud2 & input);
 
-/**
- * @brief Configuration for the BlockageDiag class.
- *
- * This structure consolidates all configuration parameters needed for blockage and dust detection.
- */
-struct BlockageDiagConfig
-{
-  pointcloud2_to_depth_image::ConverterConfig depth_converter_config;
-  BlockageDetectionConfig blockage_config;
-  MultiFrameDetectionAggregatorConfig blockage_aggregator_config;
-  bool enable_dust_detection;
-  DustDetectionConfig dust_config;
-  MultiFrameDetectionAggregatorConfig dust_aggregator_config;
-  bool enable_debug_output;
-};
+}  // namespace autoware::pointcloud_preprocessor
 
-/**
- * @brief Debug images generated during blockage/dust detection.
- *
- * This structure contains various masks and visualizations for debugging purposes.
- */
-struct BlockageDiagDebugImages
-{
-  cv::Mat blockage_mask_single_frame;
-  cv::Mat blockage_mask_multi_frame;
-  cv::Mat dust_mask_single_frame;
-  cv::Mat dust_mask_multi_frame;
-  cv::Mat blockage_dust_merged;
-};
+// Include config and result types after basic type definitions
+// This avoids circular dependency issues
+#include "blockage_diag_config.hpp"
 
-/**
- * @brief Result of blockage diagnosis.
- *
- * This structure contains diagnostic outputs and optional debug images.
- */
-struct BlockageDiagResult
+namespace autoware::pointcloud_preprocessor
 {
-  DiagnosticOutput blockage_diagnostic;
-  std::optional<DiagnosticOutput> dust_diagnostic;
-  std::optional<BlockageDiagDebugImages> debug_images;
-  std_msgs::msg::Header header;
-};
 
 /**
  * @brief Facade class for blockage and dust detection.

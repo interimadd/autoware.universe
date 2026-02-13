@@ -14,6 +14,8 @@
 
 #include "autoware/pointcloud_preprocessor/blockage_diag/blockage_detection.hpp"
 
+#include "autoware/pointcloud_preprocessor/blockage_diag/blockage_diag.hpp"
+
 #include <opencv2/imgproc.hpp>
 
 #include <string>
