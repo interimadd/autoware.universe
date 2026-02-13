@@ -218,35 +218,6 @@ void BlockageDiagComponent::publish_dust_debug_info(
   }
 }
 
-void BlockageDiagComponent::publish_blockage_debug_info(
-  const BlockageDetectionResult & blockage_result, const std_msgs::msg::Header & input_header,
-  const cv::Mat & depth_image_16u, const cv::Mat & blockage_mask_multi_frame) const
-{
-  autoware_internal_debug_msgs::msg::Float32Stamped ground_blockage_ratio_msg;
-  ground_blockage_ratio_msg.data = blockage_result.ground.blockage_ratio;
-  ground_blockage_ratio_msg.stamp = now();
-  ground_blockage_ratio_pub_->publish(ground_blockage_ratio_msg);
-
-  autoware_internal_debug_msgs::msg::Float32Stamped sky_blockage_ratio_msg;
-  sky_blockage_ratio_msg.data = blockage_result.sky.blockage_ratio;
-  sky_blockage_ratio_msg.stamp = now();
-  sky_blockage_ratio_pub_->publish(sky_blockage_ratio_msg);
-
-  if (publish_debug_image_) {
-    sensor_msgs::msg::Image::SharedPtr lidar_depth_map_msg =
-      cv_bridge::CvImage(std_msgs::msg::Header(), "mono16", depth_image_16u).toImageMsg();
-    lidar_depth_map_msg->header = input_header;
-    lidar_depth_map_pub_.publish(lidar_depth_map_msg);
-
-    cv::Mat blockage_mask_colorized;
-    cv::applyColorMap(blockage_mask_multi_frame, blockage_mask_colorized, cv::COLORMAP_JET);
-    sensor_msgs::msg::Image::SharedPtr blockage_mask_msg =
-      cv_bridge::CvImage(std_msgs::msg::Header(), "bgr8", blockage_mask_colorized).toImageMsg();
-    blockage_mask_msg->header = input_header;
-    blockage_mask_pub_.publish(blockage_mask_msg);
-  }
-}
-
 void BlockageDiagComponent::update_diagnostics(
   const sensor_msgs::msg::PointCloud2::ConstSharedPtr & input)
 {
@@ -263,8 +234,6 @@ void BlockageDiagComponent::update_diagnostics(
   BlockageDetectionResult blockage_result =
     blockage_detector_->compute_blockage_diagnostics(depth_image_16u);
   cv::Mat multi_frame_blockage_mask = blockage_aggregator_->update(blockage_result.blockage_mask);
-  publish_blockage_debug_info(
-    blockage_result, input->header, depth_image_16u, multi_frame_blockage_mask);
 
   // Dust detection
   if (enable_dust_diag_) {

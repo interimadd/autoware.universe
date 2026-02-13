@@ -72,18 +72,6 @@ private:
   void run_dust_check(DiagnosticStatusWrapper & stat) const;
 
   /**
-   * @brief Publish the debug info of blockage diagnostics if enabled.
-   *
-   * @param blockage_result The blockage detection result.
-   * @param input_header The header of the input point cloud.
-   * @param depth_image_16u The depth image converted from the input point cloud.
-   * @param blockage_mask_multi_frame The multi-frame blockage mask.
-   */
-  void publish_blockage_debug_info(
-    const BlockageDetectionResult & blockage_result, const std_msgs::msg::Header & input_header,
-    const cv::Mat & depth_image_16u, const cv::Mat & blockage_mask_multi_frame) const;
-
-  /**
    * @brief Publish the debug info of dust diagnostics if enabled.
    *
    * @param dust_result The dust detection result.
