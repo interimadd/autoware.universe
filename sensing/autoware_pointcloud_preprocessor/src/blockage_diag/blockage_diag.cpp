@@ -153,16 +153,6 @@ BlockageDiagResult BlockageDiag::update(const sensor_msgs::msg::PointCloud2 & in
   return result;
 }
 
-bool BlockageDiag::is_dust_detection_enabled() const
-{
-  return config_.enable_dust_detection;
-}
-
-bool BlockageDiag::is_debug_output_enabled() const
-{
-  return config_.enable_debug_output;
-}
-
 DiagnosticOutput BlockageDiag::get_blockage_detection_diag() const
 {
   return blockage_detector_->get_blockage_diagnostics_output();

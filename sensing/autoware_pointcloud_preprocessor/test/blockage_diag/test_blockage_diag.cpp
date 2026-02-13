@@ -307,21 +307,6 @@ TEST(BlockageDiagTest, HeaderIsPreserved)
   EXPECT_EQ(result.header.stamp.nanosec, 67890);
 }
 
-TEST(BlockageDiagTest, ConfigQueryMethods)
-{
-  // Test with dust disabled
-  BlockageDiagConfig config1 = create_test_config(false, false);
-  BlockageDiag diag1(config1);
-  EXPECT_FALSE(diag1.is_dust_detection_enabled());
-  EXPECT_FALSE(diag1.is_debug_output_enabled());
-
-  // Test with dust and debug enabled
-  BlockageDiagConfig config2 = create_test_config(true, true);
-  BlockageDiag diag2(config2);
-  EXPECT_TRUE(diag2.is_dust_detection_enabled());
-  EXPECT_TRUE(diag2.is_debug_output_enabled());
-}
-
 TEST(BlockageDiagTest, MultiFrameProcessing)
 {
   // Arrange

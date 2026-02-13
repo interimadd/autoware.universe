@@ -16,6 +16,7 @@
 #define AUTOWARE__POINTCLOUD_PREPROCESSOR__BLOCKAGE_DIAG__BLOCKAGE_DIAG_HPP_
 
 #include "blockage_diag_types.hpp"
+#include "blockage_diag_config.hpp"
 
 #include <opencv2/core/mat.hpp>
 
@@ -68,15 +69,6 @@ std::pair<cv::Mat, cv::Mat> segment_into_ground_and_sky(
  */
 void validate_pointcloud_fields(const sensor_msgs::msg::PointCloud2 & input);
 
-}  // namespace autoware::pointcloud_preprocessor
-
-// Include config and result types after basic type definitions
-// This avoids circular dependency issues
-#include "blockage_diag_config.hpp"
-
-namespace autoware::pointcloud_preprocessor
-{
-
 /**
  * @brief Facade class for blockage and dust detection.
  *
@@ -105,20 +97,6 @@ public:
    * @throws std::runtime_error if point cloud validation fails.
    */
   BlockageDiagResult update(const sensor_msgs::msg::PointCloud2 & input);
-
-  /**
-   * @brief Check if dust detection is enabled.
-   *
-   * @return true if dust detection is enabled, false otherwise.
-   */
-  bool is_dust_detection_enabled() const;
-
-  /**
-   * @brief Check if debug output is enabled.
-   *
-   * @return true if debug output is enabled, false otherwise.
-   */
-  bool is_debug_output_enabled() const;
 
   /**
    * @brief Get the latest blockage detection diagnostic result.
