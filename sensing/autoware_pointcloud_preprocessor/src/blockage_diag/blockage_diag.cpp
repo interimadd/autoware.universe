@@ -182,12 +182,12 @@ DiagnosticOutput BlockageDiag::get_dust_detection_diag() const
   return output;
 }
 
-std::optional<BlockageDiagDebugImages> BlockageDiag::get_debug_images() const
+BlockageDiagDebugImages BlockageDiag::get_debug_images() const
 {
-  if (!latest_result_.has_value()) {
-    return std::nullopt;
+  if (!latest_result_.has_value() || !latest_result_->debug_images.has_value()) {
+    return BlockageDiagDebugImages();
   }
-  return latest_result_->debug_images;
+  return latest_result_->debug_images.value();
 }
 
 BlockageDiagDebugImages BlockageDiag::create_debug_images(

@@ -137,9 +137,9 @@ public:
   /**
    * @brief Get the latest debug images.
    *
-   * @return std::optional<BlockageDiagDebugImages> containing debug images, or std::nullopt if not available.
+   * @return BlockageDiagDebugImages containing debug images. Returns empty images if not available.
    */
-  std::optional<BlockageDiagDebugImages> get_debug_images() const;
+  BlockageDiagDebugImages get_debug_images() const;
 
 private:
   BlockageDiagConfig config_;

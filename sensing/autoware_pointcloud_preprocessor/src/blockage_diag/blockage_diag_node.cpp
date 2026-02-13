@@ -151,10 +151,7 @@ void BlockageDiagComponent::update_diagnostics(
 {
   try {
     blockage_diag_->update(*input);
-    const auto debug_images = blockage_diag_->get_debug_images();
-    if (debug_images.has_value()) {
-      publish_debug_images(debug_images.value());
-    }
+    publish_debug_images(blockage_diag_->get_debug_images());
   } catch (const std::runtime_error & e) {
     RCLCPP_ERROR(get_logger(), "Blockage diagnostics failed: %s", e.what());
   }
