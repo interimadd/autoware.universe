@@ -168,6 +168,66 @@ std::vector<MultiCameraFusion::IdType> find_unmapped_traffic_light_ids(
   return unmapped_traffic_light_ids;
 }
 
+/**
+ * @brief Return the record of the most probable (highest log-odds) state of a group.
+ */
+const utils::FusionRecord & best_record_of_group(const GroupFusionInfo & group_info)
+{
+  const StateKey best_state_key = get_best_state_key(group_info.accumulated_log_odds);
+  return group_info.best_record_for_state.at(best_state_key);
+}
+
+/**
+ * @brief Evaluate whether the state keys observed for a single group conflict with each other.
+ *
+ * Folds check_conflict over the group's state keys, carrying the running common state. Stops at
+ * the first critical conflict; for partial/no conflict it keeps merging only when partial-matched
+ * signals are allowed to be published.
+ */
+ConflictStatus evaluate_group_conflict(
+  const GroupFusionInfo & group_info, bool publish_partial_matched_signal)
+{
+  auto log_odds_it = group_info.accumulated_log_odds.begin();
+  StateKey running_state = log_odds_it->first;
+  ConflictStatus conflict_result{ConflictType::PARTIAL_CONFLICT, running_state};
+
+  for (++log_odds_it; log_odds_it != group_info.accumulated_log_odds.end(); ++log_odds_it) {
+    const StateKey & competitor_state = log_odds_it->first;
+    conflict_result = signal_validator::check_conflict(running_state, competitor_state);
+    running_state = conflict_result.common_state_key;
+
+    const bool keep_merging =
+      conflict_result.conflict_type != ConflictType::CONFLICT && publish_partial_matched_signal;
+    if (!keep_merging) {
+      break;
+    }
+  }
+  return conflict_result;
+}
+
+/**
+ * @brief Build a record carrying only the matched (common) signals of a partial conflict.
+ *
+ * Copies the base data from the best record but replaces its elements with the common state,
+ * keeping the base record's min confidence.
+ */
+utils::FusionRecord build_partial_matched_record(
+  const utils::FusionRecord & best_record, const StateKey & common_state_key)
+{
+  utils::FusionRecord merged_record = best_record;
+  merged_record.signal.elements.clear();
+
+  const double min_confidence = utils::get_min_confidence(best_record.signal);
+  for (const auto & [color, shape] : common_state_key) {
+    tier4_perception_msgs::msg::TrafficLightElement new_element;
+    new_element.color = color;
+    new_element.shape = shape;
+    new_element.confidence = min_confidence;
+    merged_record.signal.elements.push_back(new_element);
+  }
+  return merged_record;
+}
+
 }  // namespace
 
 MultiCameraFusion::MultiCameraFusion(const MultiCameraFusionConfig & config)
@@ -338,83 +398,32 @@ std::vector<ConflictInfo> MultiCameraFusion::determine_best_group_state(
 {
   std::vector<ConflictInfo> conflicted_regulatory_element_status;
 
-  for (const auto & pair : group_fusion_info_map) {
-    const IdType reg_ele_id = pair.first;
-    const auto & group_info = pair.second;
-
+  for (const auto & [reg_ele_id, group_info] : group_fusion_info_map) {
     if (group_info.accumulated_log_odds.empty()) {
       continue;
     }
 
+    // Without the consistency check, or when only one state was observed, there is nothing to
+    // reconcile: publish the most probable record as-is.
     if (!config_.use_signal_consistency_check || group_info.accumulated_log_odds.size() == 1) {
-      // use the most probable one (the highest logarithmic odds) as the base
-      const StateKey best_state_key = get_best_state_key(group_info.accumulated_log_odds);
-      grouped_record_map[reg_ele_id] = group_info.best_record_for_state.at(best_state_key);
-
+      grouped_record_map[reg_ele_id] = best_record_of_group(group_info);
       continue;
     }
 
-    // only records with multiple state keys reach here
-    // these indicate conflicts, except when unknown states are present
-
-    auto log_odds_it = group_info.accumulated_log_odds.begin();
-    StateKey running_state = (*log_odds_it).first;
-
-    ConflictStatus conflict_result{ConflictType::PARTIAL_CONFLICT, running_state};
-
-    // check if conflicts exist among the signals within the same regulatory element id
-    for (++log_odds_it; log_odds_it != group_info.accumulated_log_odds.end(); ++log_odds_it) {
-      const StateKey & competitor_state = (*log_odds_it).first;
-      conflict_result = signal_validator::check_conflict(running_state, competitor_state);
-      running_state = conflict_result.common_state_key;
-
-      if (conflict_result.conflict_type == ConflictType::CONFLICT) {
-        // critical conflict will be overwritten with fail-safe record
-        // we immediately exit the loop
-        break;
-      } else {  // partial conflict
-        if (config_.publish_partial_matched_signal) {
-          continue;
-        } else {
-          break;
-        }
-      }
-    }
+    // Multiple state keys with the consistency check enabled: reconcile them.
+    const ConflictStatus conflict_result =
+      evaluate_group_conflict(group_info, config_.publish_partial_matched_signal);
+    const utils::FusionRecord & best_record = best_record_of_group(group_info);
 
     if (
       conflict_result.conflict_type == ConflictType::CONFLICT ||
       !config_.publish_partial_matched_signal) {
-      // use a fail-safe record as a fallback for this regulatory element.
-
-      // use the most probable one (the highest logarithmic odds) as the base
-      const StateKey best_state_key = get_best_state_key(group_info.accumulated_log_odds);
-
-      // set the best record that signal is overwritten with fail-safe record
-      grouped_record_map[reg_ele_id] =
-        utils::generate_failsafe_record(group_info.best_record_for_state.at(best_state_key));
+      // critical conflict, or partial matches must not be published: fall back to a fail-safe.
+      grouped_record_map[reg_ele_id] = utils::generate_failsafe_record(best_record);
     } else {
-      // partially conflicted and allowed to publish the matched signals
-
-      // rebuild the record based on the matched signals
-      // copy the base data from the best original record, but replace the elements
-      const StateKey best_state_key = get_best_state_key(group_info.accumulated_log_odds);
-      utils::FusionRecord merged_record = group_info.best_record_for_state.at(best_state_key);
-
-      merged_record.signal.elements.clear();
-
-      const double min_confidence =
-        utils::get_min_confidence(group_info.best_record_for_state.at(best_state_key).signal);
-      for (const auto & elem : running_state) {
-        tier4_perception_msgs::msg::TrafficLightElement new_elem;
-        new_elem.color = elem.first;
-        new_elem.shape = elem.second;
-        // keep the min confidence of the base record
-        new_elem.confidence = min_confidence;
-
-        merged_record.signal.elements.push_back(new_elem);
-      }
-
-      grouped_record_map[reg_ele_id] = merged_record;
+      // partial conflict and partial matches are allowed: publish only the matched signals.
+      grouped_record_map[reg_ele_id] =
+        build_partial_matched_record(best_record, conflict_result.common_state_key);
     }
 
     // suppress diagnostics for comparisons with unknown
