@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <cmath>
 #include <map>
+#include <set>
 #include <utility>
 #include <vector>
 
@@ -242,6 +243,13 @@ utils::FusionRecord build_partial_matched_record(
 
 }  // namespace
 
+// Per-camera fusion over the buffered messages. Defined after fuse() (its only caller); declared
+// here so the call site reads top-down. Drops records older than message_lifespan relative to the
+// newest one (erased from record_arr_set in place), then keeps the highest-priority record for
+// each traffic light id.
+std::map<MultiCameraFusion::IdType, utils::FusionRecord> fuse_records_per_traffic_light(
+  std::multiset<utils::FusionRecordArr> & record_arr_set, double message_lifespan);
+
 // Group-fusion helpers. Defined below in the group-fusion section; declared here so their callers
 // read top-down.
 void accumulate_state_evidence(
@@ -267,7 +275,8 @@ MultiCameraFusionResult MultiCameraFusion::fuse(
   MultiCameraFusionResult result;
 
   // Per-camera fusion: pick one record per traffic light id across the buffered messages.
-  const std::map<IdType, utils::FusionRecord> fused_record_map = multi_camera_fusion();
+  const std::map<IdType, utils::FusionRecord> fused_record_map =
+    fuse_records_per_traffic_light(record_arr_set_, config_.message_lifespan);
   result.unmapped_traffic_light_ids =
     find_unmapped_traffic_light_ids(fused_record_map, traffic_light_id_to_regulatory_ele_id_);
 
@@ -285,29 +294,32 @@ MultiCameraFusionResult MultiCameraFusion::fuse(
   return result;
 }
 
-std::map<MultiCameraFusion::IdType, utils::FusionRecord> MultiCameraFusion::multi_camera_fusion()
+std::map<MultiCameraFusion::IdType, utils::FusionRecord> fuse_records_per_traffic_light(
+  std::multiset<utils::FusionRecordArr> & record_arr_set, double message_lifespan)
 {
-  std::map<IdType, utils::FusionRecord> fused_record_map;
-  const rclcpp::Time & newest_stamp(record_arr_set_.rbegin()->header.stamp);
-  for (auto it = record_arr_set_.begin(); it != record_arr_set_.end();) {
+  std::map<MultiCameraFusion::IdType, utils::FusionRecord> fused_record_map;
+  const rclcpp::Time & newest_stamp(record_arr_set.rbegin()->header.stamp);
+  for (auto it = record_arr_set.begin(); it != record_arr_set.end();) {
     /*
     remove all old record arrays whose timestamp difference with newest record is larger than
     threshold
     */
     if (
       (newest_stamp - rclcpp::Time(it->header.stamp)) >
-      rclcpp::Duration::from_seconds(config_.message_lifespan)) {
-      it = record_arr_set_.erase(it);
+      rclcpp::Duration::from_seconds(message_lifespan)) {
+      it = record_arr_set.erase(it);
     } else {
       /*
       generate fused record result with the saved records
       */
       const utils::FusionRecordArr & record_arr = *it;
       for (size_t i = 0; i < record_arr.rois.rois.size(); i++) {
-        const RoiType & roi = record_arr.rois.rois[i];
+        const MultiCameraFusion::RoiType & roi = record_arr.rois.rois[i];
         auto signal_it = std::find_if(
           record_arr.signals.signals.begin(), record_arr.signals.signals.end(),
-          [roi](const SignalType & s1) { return roi.traffic_light_id == s1.traffic_light_id; });
+          [roi](const MultiCameraFusion::SignalType & s1) {
+            return roi.traffic_light_id == s1.traffic_light_id;
+          });
         /*
         failed to find corresponding signal. skip it
         */

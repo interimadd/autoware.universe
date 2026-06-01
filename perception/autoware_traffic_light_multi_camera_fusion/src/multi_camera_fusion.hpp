@@ -98,12 +98,6 @@ public:
 
 private:
   /**
-   * @brief Per-camera fusion: select one record per traffic light id from the buffered messages.
-   * @return The chosen record for each traffic light id.
-   */
-  std::map<IdType, utils::FusionRecord> multi_camera_fusion();
-
-  /**
    * @brief Accumulates log-odds evidence for each traffic light group from individual fused
    * records.
    */
