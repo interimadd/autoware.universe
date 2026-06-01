@@ -97,12 +97,11 @@ public:
     const CamInfoType & cam_info, const RoiArrayType & rois, const SignalArrayType & signals);
 
 private:
-  void multi_camera_fusion(std::map<IdType, utils::FusionRecord> & fused_record_map);
-
-  void group_fusion(
-    const std::map<IdType, utils::FusionRecord> & fused_record_map,
-    std::map<IdType, utils::FusionRecord> & grouped_record_map,
-    std::vector<ConflictInfo> & conflicted_regulatory_element_status);
+  /**
+   * @brief Per-camera fusion: select one record per traffic light id from the buffered messages.
+   * @return The chosen record for each traffic light id.
+   */
+  std::map<IdType, utils::FusionRecord> multi_camera_fusion();
 
   /**
    * @brief Accumulates log-odds evidence for each traffic light group from individual fused
@@ -110,25 +109,6 @@ private:
    */
   GroupFusionInfoMap accumulate_group_evidence(
     const std::map<IdType, utils::FusionRecord> & fused_record_map);
-
-  /**
-   * @brief Processes a single fused record and updates the group_fusion_info_map.
-   */
-  void process_fused_record(
-    GroupFusionInfoMap & group_fusion_info_map, const utils::FusionRecord & record);
-
-  /**
-   * @brief Updates the map for a single (element, regulatory_id) combination.
-   */
-  void update_group_info_for_element(
-    GroupFusionInfoMap & group_fusion_info_map, const IdType & reg_ele_id,
-    const utils::FusionRecord & record) const;
-
-  /**
-   * @brief Handles the log-odds accumulation logic.
-   */
-  void update_log_odds(
-    std::map<StateKey, double> & log_odds_map, const StateKey & state_key, double confidence) const;
 
   /**
    * @brief Determines the best state for each group based on accumulated evidence.

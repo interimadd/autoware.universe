@@ -151,6 +151,18 @@ void update_best_record(
 }
 
 /**
+ * @brief Build the (color, shape) state key that identifies a signal's set of elements.
+ */
+StateKey state_key_of(const tier4_perception_msgs::msg::TrafficLight & signal)
+{
+  StateKey state_key;
+  for (const auto & element : signal.elements) {
+    state_key.emplace_back(element.color, element.shape);
+  }
+  return state_key;
+}
+
+/**
  * @brief Collect the traffic light ids that were observed but are not registered in the map.
  */
 std::vector<MultiCameraFusion::IdType> find_unmapped_traffic_light_ids(
@@ -230,6 +242,12 @@ utils::FusionRecord build_partial_matched_record(
 
 }  // namespace
 
+// Group-fusion helpers. Defined below in the group-fusion section; declared here so their callers
+// read top-down.
+void accumulate_state_evidence(
+  GroupFusionInfo & group_info, const utils::FusionRecord & record, double prior_log_odds);
+double updated_log_odds(double current_log_odds, double confidence, double prior_log_odds);
+
 MultiCameraFusion::MultiCameraFusion(const MultiCameraFusionConfig & config)
 : config_(config),
   traffic_light_id_to_regulatory_ele_id_(
@@ -247,11 +265,17 @@ MultiCameraFusionResult MultiCameraFusion::fuse(
   record_arr_set_.insert(utils::FusionRecordArr{cam_info.header, cam_info, rois, signals});
 
   MultiCameraFusionResult result;
-  std::map<IdType, utils::FusionRecord> fused_record_map, grouped_record_map;
-  multi_camera_fusion(fused_record_map);
+
+  // Per-camera fusion: pick one record per traffic light id across the buffered messages.
+  const std::map<IdType, utils::FusionRecord> fused_record_map = multi_camera_fusion();
   result.unmapped_traffic_light_ids =
     find_unmapped_traffic_light_ids(fused_record_map, traffic_light_id_to_regulatory_ele_id_);
-  group_fusion(fused_record_map, grouped_record_map, result.conflicted_regulatory_element_status);
+
+  // Group fusion: accumulate evidence per regulatory element, then pick the best state per group.
+  const GroupFusionInfoMap group_fusion_info_map = accumulate_group_evidence(fused_record_map);
+  std::map<IdType, utils::FusionRecord> grouped_record_map;
+  result.conflicted_regulatory_element_status =
+    determine_best_group_state(group_fusion_info_map, grouped_record_map);
 
   NewSignalArrayType msg_out;
   convert_output_msg(grouped_record_map, msg_out);
@@ -261,10 +285,9 @@ MultiCameraFusionResult MultiCameraFusion::fuse(
   return result;
 }
 
-void MultiCameraFusion::multi_camera_fusion(
-  std::map<IdType, utils::FusionRecord> & fused_record_map)
+std::map<MultiCameraFusion::IdType, utils::FusionRecord> MultiCameraFusion::multi_camera_fusion()
 {
-  fused_record_map.clear();
+  std::map<IdType, utils::FusionRecord> fused_record_map;
   const rclcpp::Time & newest_stamp(record_arr_set_.rbegin()->header.stamp);
   for (auto it = record_arr_set_.begin(); it != record_arr_set_.end();) {
     /*
@@ -305,22 +328,7 @@ void MultiCameraFusion::multi_camera_fusion(
       it++;
     }
   }
-}
-
-void MultiCameraFusion::group_fusion(
-  const std::map<IdType, utils::FusionRecord> & fused_record_map,
-  std::map<IdType, utils::FusionRecord> & grouped_record_map,
-  std::vector<ConflictInfo> & conflicted_regulatory_element_status)
-{
-  grouped_record_map.clear();
-
-  // Stage 1: Accumulate evidence from all fused records
-  const std::map<IdType, GroupFusionInfo> group_fusion_info_map =
-    accumulate_group_evidence(fused_record_map);
-
-  // Stage 2: Determine the best state for each group from the accumulated evidence
-  conflicted_regulatory_element_status =
-    determine_best_group_state(group_fusion_info_map, grouped_record_map);
+  return fused_record_map;
 }
 
 GroupFusionInfoMap MultiCameraFusion::accumulate_group_evidence(
@@ -328,68 +336,43 @@ GroupFusionInfoMap MultiCameraFusion::accumulate_group_evidence(
 {
   GroupFusionInfoMap group_fusion_info_map;
   for (const auto & [traffic_light_id, record] : fused_record_map) {
-    process_fused_record(group_fusion_info_map, record);
+    const auto it = traffic_light_id_to_regulatory_ele_id_.find(traffic_light_id);
+    // Skip ids that are not registered in the map (reported separately as unmapped) or carry no
+    // elements.
+    if (it == traffic_light_id_to_regulatory_ele_id_.end() || record.signal.elements.empty()) {
+      continue;
+    }
+    for (const auto & reg_ele_id : it->second) {
+      accumulate_state_evidence(group_fusion_info_map[reg_ele_id], record, config_.prior_log_odds);
+    }
   }
   return group_fusion_info_map;
 }
 
 /**
- * @brief Processes a single fused record and updates the group_fusion_info_map.
+ * @brief Accumulate one record's evidence (log-odds and best record) into its group.
  */
-void MultiCameraFusion::process_fused_record(
-  GroupFusionInfoMap & group_fusion_info_map, const utils::FusionRecord & record)
+void accumulate_state_evidence(
+  GroupFusionInfo & group_info, const utils::FusionRecord & record, double prior_log_odds)
 {
-  const IdType roi_id = record.roi.traffic_light_id;
-
-  const auto it = traffic_light_id_to_regulatory_ele_id_.find(roi_id);
-  if (it == traffic_light_id_to_regulatory_ele_id_.end()) {
-    return;
-  }
-
-  if (record.signal.elements.empty()) {
-    return;
-  }
-
-  const auto & reg_ele_id_vec = it->second;
-  for (const auto & reg_ele_id : reg_ele_id_vec) {
-    update_group_info_for_element(group_fusion_info_map, reg_ele_id, record);
-  }
-}
-
-/**
- * @brief Updates the map for a single (element, regulatory_id) combination.
- */
-void MultiCameraFusion::update_group_info_for_element(
-  GroupFusionInfoMap & group_fusion_info_map, const IdType & reg_ele_id,
-  const utils::FusionRecord & record) const
-{
-  StateKey state_key;
-  for (const auto & element : record.signal.elements) {
-    state_key.emplace_back(std::make_pair(element.color, element.shape));
-  }
+  const StateKey state_key = state_key_of(record.signal);
   const double confidence = utils::get_min_confidence(record.signal);
-  auto & group_info = group_fusion_info_map[reg_ele_id];
 
-  // Update Log-Odds
-  update_log_odds(group_info.accumulated_log_odds, state_key, confidence);
+  double & log_odds = group_info.accumulated_log_odds[state_key];
+  log_odds = updated_log_odds(log_odds, confidence, prior_log_odds);
 
-  // Update Best Record
   update_best_record(group_info.best_record_for_state, state_key, confidence, record);
 }
 
 /**
- * @brief Handles the log-odds accumulation logic.
+ * @brief Combine the current accumulated log-odds with a new observation (Bayesian update).
+ *
+ * Adds the observation's evidence relative to the prior. A fresh state key starts from 0.0, so the
+ * first observation contributes exactly evidence - prior.
  */
-void MultiCameraFusion::update_log_odds(
-  std::map<StateKey, double> & log_odds_map, const StateKey & state_key, double confidence) const
+double updated_log_odds(double current_log_odds, double confidence, double prior_log_odds)
 {
-  // try_emplace ensures we only add the 0.0 prior (from a 0.5 probability) once.
-  log_odds_map.try_emplace(state_key, 0.0);
-
-  const double evidence_log_odds = probability_to_log_odds(confidence);
-
-  // Accumulate evidence
-  log_odds_map[state_key] += evidence_log_odds - config_.prior_log_odds;
+  return current_log_odds + probability_to_log_odds(confidence) - prior_log_odds;
 }
 
 std::vector<ConflictInfo> MultiCameraFusion::determine_best_group_state(
