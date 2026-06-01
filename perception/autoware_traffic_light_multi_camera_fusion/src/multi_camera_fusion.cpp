@@ -127,28 +127,19 @@ autoware_perception_msgs::msg::TrafficLightGroupArray convert_output_msg(
 }
 
 /**
- * @brief Handles the logic for tracking the best record for a given state.
+ * @brief Choose which record to keep as the best for a state.
+ *
+ * An empty existing record means no record has been kept yet, so the candidate wins. Otherwise the
+ * candidate replaces the existing one only when it has strictly higher confidence.
  */
-void update_best_record(
-  std::map<StateKey, utils::FusionRecord> & best_record_map, const StateKey & state_key,
-  double confidence, const utils::FusionRecord & record)
+const utils::FusionRecord & select_best_record(
+  const utils::FusionRecord & existing, const utils::FusionRecord & candidate,
+  double candidate_confidence)
 {
-  const auto it = best_record_map.find(state_key);
-
-  if (it == best_record_map.end()) {
-    best_record_map[state_key] = record;
-    return;
+  if (existing.signal.elements.empty()) {
+    return candidate;
   }
-
-  auto & existing_record = it->second;
-
-  if (existing_record.signal.elements.empty()) {
-    return;
-  }
-
-  if (confidence > utils::get_min_confidence(existing_record.signal)) {
-    best_record_map[state_key] = record;
-  }
+  return candidate_confidence > utils::get_min_confidence(existing.signal) ? candidate : existing;
 }
 
 /**
@@ -371,7 +362,8 @@ void accumulate_state_evidence(
   double & log_odds = group_info.accumulated_log_odds[state_key];
   log_odds = updated_log_odds(log_odds, confidence, prior_log_odds);
 
-  update_best_record(group_info.best_record_for_state, state_key, confidence, record);
+  utils::FusionRecord & best_record = group_info.best_record_for_state[state_key];
+  best_record = select_best_record(best_record, record, confidence);
 }
 
 /**
