@@ -111,11 +111,10 @@ std::map<lanelet::Id, std::vector<lanelet::Id>> build_traffic_light_id_to_regula
   return traffic_light_id_to_regulatory_ele_id;
 }
 
-void convert_output_msg(
-  const std::map<MultiCameraFusion::IdType, utils::FusionRecord> & grouped_record_map,
-  autoware_perception_msgs::msg::TrafficLightGroupArray & msg_out)
+autoware_perception_msgs::msg::TrafficLightGroupArray convert_output_msg(
+  const std::map<MultiCameraFusion::IdType, utils::FusionRecord> & grouped_record_map)
 {
-  msg_out.traffic_light_groups.clear();
+  autoware_perception_msgs::msg::TrafficLightGroupArray msg_out;
   for (const auto & [regulatory_element_id, record] : grouped_record_map) {
     autoware_perception_msgs::msg::TrafficLightGroup signal_out;
     signal_out.traffic_light_group_id = regulatory_element_id;
@@ -124,6 +123,7 @@ void convert_output_msg(
     }
     msg_out.traffic_light_groups.push_back(signal_out);
   }
+  return msg_out;
 }
 
 /**
@@ -286,10 +286,8 @@ MultiCameraFusionResult MultiCameraFusion::fuse(
   result.conflicted_regulatory_element_status =
     determine_best_group_state(group_fusion_info_map, grouped_record_map);
 
-  NewSignalArrayType msg_out;
-  convert_output_msg(grouped_record_map, msg_out);
-  msg_out.stamp = cam_info.header.stamp;
-  result.traffic_light_groups = msg_out;
+  result.traffic_light_groups = convert_output_msg(grouped_record_map);
+  result.traffic_light_groups.stamp = cam_info.header.stamp;
 
   return result;
 }
