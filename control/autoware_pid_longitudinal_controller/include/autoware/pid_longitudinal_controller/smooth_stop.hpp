@@ -70,22 +70,29 @@ public:
   void setParams(const Params & params);
 
   /**
+   * @brief record the current motion, used to predict the time to stop and to judge whether the
+   *        car is running. Call this once per control cycle regardless of the current control
+   *        state.
+   * @param [in] time time at which the motion was observed
+   * @param [in] vel ego velocity observed at the given time [m/s]
+   * @param [in] acc ego acceleration observed at the given time [m/s²]
+   * @param [in] time_window length of velocity history to keep, older samples are discarded [s]
+   */
+  void recordMotion(
+    const rclcpp::Time & time, const double vel, const double acc, const double time_window);
+
+  /**
    * @brief calculate accel command while stopping
    *        Decrease velocity with m_strong_acc,
    *        then loose brake pedal with m_params.weak_acc to stop smoothly
    *        If the car is still running, input m_params.weak_stop_acc
    *        and then m_params.strong_stop_acc in steps not to exceed stopline too much
+   *        The current velocity, acceleration and time are taken from the most recent sample
+   *        given to recordMotion(), which must therefore be called at least once beforehand.
    * @param [in] stop_dist distance left to travel before stopping [m]
-   * @param [in] current_vel current velocity of ego [m/s]
-   * @param [in] current_acc current acceleration of ego [m/s²]
-   * @param [in] vel_hist history of previous ego velocities as (rclcpp::Time, double[m/s]) pairs
    * @param [in] delay_time assumed time delay when the stop command will actually be executed
-   * @param [in] current_time time at which this calculation occurs
    */
-  double calculate(
-    const double stop_dist, const double current_vel, const double current_acc,
-    const std::vector<std::pair<rclcpp::Time, double>> & vel_hist, const double delay_time,
-    const rclcpp::Time & current_time, DebugValues & debug_values);
+  double calculate(const double stop_dist, const double delay_time, DebugValues & debug_values);
 
 private:
   Params m_params;
@@ -94,6 +101,8 @@ private:
 
   double m_strong_acc;
   rclcpp::Time m_weak_acc_time;
+  std::vector<std::pair<rclcpp::Time, double>> m_vel_hist;
+  double m_current_acc{0.0};
 };
 }  // namespace autoware::motion::control::pid_longitudinal_controller
 

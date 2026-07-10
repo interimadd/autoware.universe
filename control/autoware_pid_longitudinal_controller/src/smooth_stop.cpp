@@ -43,6 +43,16 @@ void SmoothStop::setParams(const Params & params)
   m_params = params;
 }
 
+void SmoothStop::recordMotion(
+  const rclcpp::Time & time, const double vel, const double acc, const double time_window)
+{
+  m_vel_hist.emplace_back(time, vel);
+  m_current_acc = acc;
+  while (!m_vel_hist.empty() && (time - m_vel_hist.front().first).seconds() > time_window) {
+    m_vel_hist.erase(m_vel_hist.begin());
+  }
+}
+
 namespace
 {
 std::optional<double> calcTimeToStop(
@@ -96,17 +106,19 @@ std::optional<double> calcTimeToStop(
 }  // namespace
 
 double SmoothStop::calculate(
-  const double stop_dist, const double current_vel, const double current_acc,
-  const std::vector<std::pair<rclcpp::Time, double>> & vel_hist, const double delay_time,
-  const rclcpp::Time & current_time, DebugValues & debug_values)
+  const double stop_dist, const double delay_time, DebugValues & debug_values)
 {
+  // recordMotion() is called every cycle before calculate(), so the latest sample
+  // always reflects the current velocity, acceleration and time.
+  const auto & [current_time, current_vel] = m_vel_hist.back();
+
   // predict time to stop
-  const auto time_to_stop = calcTimeToStop(vel_hist, current_time);
+  const auto time_to_stop = calcTimeToStop(m_vel_hist, current_time);
 
   // calculate some flags
   const bool is_fast_vel = std::abs(current_vel) > m_params.min_fast_vel;
   const bool is_running = std::abs(current_vel) > m_params.min_running_vel ||
-                          std::abs(current_acc) > m_params.min_running_acc;
+                          std::abs(m_current_acc) > m_params.min_running_acc;
 
   // when exceeding the stopline (stop_dist is negative in these cases.)
   if (stop_dist < m_params.strong_stop_dist) {  // when exceeding the stopline much
