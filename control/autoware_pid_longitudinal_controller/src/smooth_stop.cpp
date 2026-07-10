@@ -112,11 +112,7 @@ double SmoothStop::calculate(
   // always reflects the current velocity, acceleration and time.
   const auto & [current_time, current_vel] = m_vel_hist.back();
 
-  // predict time to stop
-  const auto time_to_stop = calcTimeToStop(m_vel_hist);
-
   // calculate some flags
-  const bool is_fast_vel = std::abs(current_vel) > m_params.min_fast_vel;
   const bool is_running = std::abs(current_vel) > m_params.min_running_vel ||
                           std::abs(m_current_acc) > m_params.min_running_acc;
 
@@ -132,6 +128,10 @@ double SmoothStop::calculate(
 
   // when the car is running
   if (is_running) {
+    // predict time to stop
+    const auto time_to_stop = calcTimeToStop(m_vel_hist);
+    const bool is_fast_vel = std::abs(current_vel) > m_params.min_fast_vel;
+
     // when the car will not stop in a certain time
     if (
       (time_to_stop && *time_to_stop > m_params.weak_stop_time + delay_time) ||
