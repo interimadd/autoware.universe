@@ -55,14 +55,14 @@ void SmoothStop::recordMotion(
 
 namespace
 {
-std::optional<double> calcTimeToStop(
-  const std::vector<std::pair<rclcpp::Time, double>> & vel_hist, const rclcpp::Time & current_time)
+std::optional<double> calcTimeToStop(const std::vector<std::pair<rclcpp::Time, double>> & vel_hist)
 {
   // return when vel_hist is empty
-  const double vel_hist_size = static_cast<double>(vel_hist.size());
-  if (vel_hist_size == 0.0) {
+  if (vel_hist.empty()) {
     return {};
   }
+  const rclcpp::Time & current_time = vel_hist.back().first;
+  const double vel_hist_size = static_cast<double>(vel_hist.size());
 
   // calculate some variables for fitting
   double mean_t = 0.0;
@@ -113,7 +113,7 @@ double SmoothStop::calculate(
   const auto & [current_time, current_vel] = m_vel_hist.back();
 
   // predict time to stop
-  const auto time_to_stop = calcTimeToStop(m_vel_hist, current_time);
+  const auto time_to_stop = calcTimeToStop(m_vel_hist);
 
   // calculate some flags
   const bool is_fast_vel = std::abs(current_vel) > m_params.min_fast_vel;
