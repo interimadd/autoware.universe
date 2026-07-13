@@ -57,6 +57,44 @@ using visualization_msgs::msg::MarkerArray;
 
 namespace trajectory_follower = ::autoware::motion::control::trajectory_follower;
 
+struct Motion
+{
+  double vel{0.0};
+  double acc{0.0};
+};
+
+struct StateAfterDelay
+{
+  StateAfterDelay(const double velocity, const double acceleration, const double distance)
+  : vel(velocity), acc(acceleration), running_distance(distance)
+  {
+  }
+  double vel{0.0};
+  double acc{0.0};
+  double running_distance{0.0};
+};
+
+enum class Shift { Forward = 0, Reverse };
+
+enum class ControlState { DRIVE = 0, STOPPING, STOPPED, EMERGENCY };
+
+struct ControlData
+{
+  geometry_msgs::msg::Pose current_pose{};
+  OperationModeState operation_mode{};
+  autoware_planning_msgs::msg::Trajectory interpolated_traj{};
+  size_t nearest_idx{0};  // nearest_idx = 0 when nearest_idx is not found with findNearestIdx
+  size_t target_idx{0};
+  StateAfterDelay state_after_delay{0.0, 0.0, 0.0};
+  Motion current_motion{};
+  Shift shift{Shift::Forward};  // shift is used only to calculate the sign of pitch compensation
+  double stop_dist{0.0};        // signed distance that is positive when car is before the stopline
+  double slope_angle{0.0};
+  double dt{0.0};
+  double temporal_predicted_time{std::numeric_limits<double>::quiet_NaN()};
+  double temporal_fused_time{std::numeric_limits<double>::quiet_NaN()};
+};
+
 /// \class PidLongitudinalController
 /// \brief The node class used for generating longitudinal control commands (velocity/acceleration)
 class PidLongitudinalController : public trajectory_follower::LongitudinalControllerBase
@@ -67,39 +105,6 @@ public:
     rclcpp::Node & node, std::shared_ptr<diagnostic_updater::Updater> diag_updater);
 
 private:
-  struct Motion
-  {
-    double vel{0.0};
-    double acc{0.0};
-  };
-  struct StateAfterDelay
-  {
-    StateAfterDelay(const double velocity, const double acceleration, const double distance)
-    : vel(velocity), acc(acceleration), running_distance(distance)
-    {
-    }
-    double vel{0.0};
-    double acc{0.0};
-    double running_distance{0.0};
-  };
-  enum class Shift { Forward = 0, Reverse };
-
-  struct ControlData
-  {
-    geometry_msgs::msg::Pose current_pose{};
-    OperationModeState operation_mode{};
-    autoware_planning_msgs::msg::Trajectory interpolated_traj{};
-    size_t nearest_idx{0};  // nearest_idx = 0 when nearest_idx is not found with findNearestIdx
-    size_t target_idx{0};
-    StateAfterDelay state_after_delay{0.0, 0.0, 0.0};
-    Motion current_motion{};
-    Shift shift{Shift::Forward};  // shift is used only to calculate the sign of pitch compensation
-    double stop_dist{0.0};  // signed distance that is positive when car is before the stopline
-    double slope_angle{0.0};
-    double dt{0.0};
-    double temporal_predicted_time{std::numeric_limits<double>::quiet_NaN()};
-    double temporal_fused_time{std::numeric_limits<double>::quiet_NaN()};
-  };
   rclcpp::node_interfaces::NodeParametersInterface::SharedPtr node_parameters_;
   rclcpp::Clock::SharedPtr clock_;
   rclcpp::Logger logger_;
@@ -124,16 +129,7 @@ private:
   std::shared_ptr<rclcpp::Time> m_under_control_starting_time{nullptr};
 
   // control state
-  enum class ControlState { DRIVE = 0, STOPPING, STOPPED, EMERGENCY };
   ControlState m_control_state{ControlState::STOPPED};
-  std::string toStr(const ControlState s)
-  {
-    if (s == ControlState::DRIVE) return "DRIVE";
-    if (s == ControlState::STOPPING) return "STOPPING";
-    if (s == ControlState::STOPPED) return "STOPPED";
-    if (s == ControlState::EMERGENCY) return "EMERGENCY";
-    return "UNDEFINED";
-  };
 
   // control period
   double m_longitudinal_ctrl_period;
@@ -325,51 +321,10 @@ private:
   double getDt();
 
   /**
-   * @brief calculate direction (forward or backward) that vehicle moves
-   * @param [in] control_data data for control calculation
-   */
-  enum Shift getCurrentShift(const ControlData & control_data) const;
-
-  /**
-   * @brief filter acceleration command with limitation of acceleration and jerk, and slope
-   * compensation
-   * @param [in] raw_acc acceleration before filtered
-   * @param [in] control_data data for control calculation
-   */
-  double calcFilteredAcc(const double raw_acc, const ControlData & control_data);
-
-  /**
    * @brief store acceleration command before slope compensation
    * @param [in] accel command before slope compensation
    */
   void storeAccelCmd(const double accel);
-
-  /**
-   * @brief add acceleration to compensate for slope
-   * @param [in] acc acceleration before slope compensation
-   * @param [in] pitch pitch angle (upward is negative)
-   * @param [in] shift direction that vehicle move (forward or backward)
-   */
-  double applySlopeCompensation(const double acc, const double pitch, const Shift shift) const;
-
-  /**
-   * @brief keep target motion acceleration negative before stop
-   * @param [in] traj reference trajectory
-   * @param [in] motion delay compensated target motion
-   */
-  Motion keepBrakeBeforeStop(
-    const ControlData & control_data, const Motion & target_motion, const size_t nearest_idx) const;
-
-  /**
-   * @brief interpolate trajectory point that is nearest to vehicle
-   * @param [in] traj reference trajectory
-   * @param [in] point vehicle position
-   * @param [in] nearest_idx index of the trajectory point nearest to the vehicle position
-   */
-  std::pair<autoware_planning_msgs::msg::TrajectoryPoint, size_t>
-  calcInterpolatedTrajPointAndSegment(
-    const autoware_planning_msgs::msg::Trajectory & traj,
-    const geometry_msgs::msg::Pose & pose) const;
 
   /**
    * @brief calculate predicted velocity after time delay based on past control commands
@@ -386,24 +341,6 @@ private:
    * @param [in] control_data data for control calculation
    */
   double applyVelocityFeedback(const ControlData & control_data);
-
-  /**
-   * @brief update variables for debugging about pitch
-   * @param [in] pitch_using
-   * @param [in] traj_pitch
-   * @param [in] localization_pitch
-   * @param [in] localization_pitch_lpf
-   */
-  void updatePitchDebugValues(
-    const double pitch_using, const double traj_pitch, const double localization_pitch,
-    const double localization_pitch_lpf);
-
-  /**
-   * @brief update variables for velocity and acceleration
-   * @param [in] ctrl_cmd latest calculated control command
-   * @param [in] control_data data for control calculation
-   */
-  void updateDebugVelAcc(const ControlData & control_data);
 
   double getTimeUnderControl();
 };

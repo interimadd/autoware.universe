@@ -31,6 +31,33 @@
 
 namespace autoware::motion::control::pid_longitudinal_controller
 {
+namespace
+{
+std::pair<autoware_planning_msgs::msg::TrajectoryPoint, size_t> calcInterpolatedTrajPointAndSegment(
+  const autoware_planning_msgs::msg::Trajectory & traj, const geometry_msgs::msg::Pose & pose,
+  const double ego_nearest_dist_threshold, const double ego_nearest_yaw_threshold);
+void updatePitchDebugValues(
+  DebugValues & debug_values, const double pitch_using, const double traj_pitch,
+  const double localization_pitch, const double localization_pitch_lpf);
+Shift getCurrentShift(const ControlData & control_data, const Shift prev_shift);
+double applySlopeCompensation(
+  const double input_acc, const double pitch, const Shift shift,
+  const bool enable_slope_compensation, const double min_pitch_rad, const double max_pitch_rad);
+Motion keepBrakeBeforeStop(
+  const ControlData & control_data, const Motion & target_motion, const size_t nearest_idx,
+  const bool enable_brake_keeping_before_stop, const double brake_keeping_acc);
+void updateDebugVelAcc(DebugValues & debug_values, const ControlData & control_data);
+
+std::string toStr(const ControlState control_state)
+{
+  if (control_state == ControlState::DRIVE) return "DRIVE";
+  if (control_state == ControlState::STOPPING) return "STOPPING";
+  if (control_state == ControlState::STOPPED) return "STOPPED";
+  if (control_state == ControlState::EMERGENCY) return "EMERGENCY";
+  return "UNDEFINED";
+}
+}  // namespace
+
 PidLongitudinalController::PidLongitudinalController(
   rclcpp::Node & node, std::shared_ptr<diagnostic_updater::Updater> diag_updater)
 : node_parameters_(node.get_node_parameters_interface()),
@@ -438,7 +465,7 @@ trajectory_follower::LongitudinalOutput PidLongitudinalController::run(
   return output;
 }
 
-PidLongitudinalController::ControlData PidLongitudinalController::getControlData(
+ControlData PidLongitudinalController::getControlData(
   const trajectory_follower::InputData & input_data)
 {
   const auto & current_pose = input_data.current_odometry.pose.pose;
@@ -485,8 +512,9 @@ PidLongitudinalController::ControlData PidLongitudinalController::getControlData
     target_point = nearest_interpolated_point.first;
   } else {
     // Calculate the interpolated nearest point from geometric projection.
-    const auto current_interpolated_pose =
-      calcInterpolatedTrajPointAndSegment(control_data.interpolated_traj, current_pose);
+    const auto current_interpolated_pose = calcInterpolatedTrajPointAndSegment(
+      control_data.interpolated_traj, current_pose, m_ego_nearest_dist_threshold,
+      m_ego_nearest_yaw_threshold);
 
     // Insert the interpolated point
     control_data.interpolated_traj.points.insert(
@@ -521,8 +549,9 @@ PidLongitudinalController::ControlData PidLongitudinalController::getControlData
     const auto target_pose = longitudinal_utils::findTrajectoryPoseAfterDistance(
       control_data.nearest_idx, control_data.state_after_delay.running_distance,
       control_data.interpolated_traj);
-    const auto target_interpolated_point =
-      calcInterpolatedTrajPointAndSegment(control_data.interpolated_traj, target_pose);
+    const auto target_interpolated_point = calcInterpolatedTrajPointAndSegment(
+      control_data.interpolated_traj, target_pose, m_ego_nearest_dist_threshold,
+      m_ego_nearest_yaw_threshold);
     control_data.target_idx = target_interpolated_point.second + 1;
     control_data.interpolated_traj.points.insert(
       control_data.interpolated_traj.points.begin() + control_data.target_idx,
@@ -555,7 +584,7 @@ PidLongitudinalController::ControlData PidLongitudinalController::getControlData
     control_data.interpolated_traj.points.at(control_data.target_idx).longitudinal_velocity_mps);
 
   // shift
-  control_data.shift = getCurrentShift(control_data);
+  control_data.shift = getCurrentShift(control_data, m_prev_shift);
   if (control_data.shift != m_prev_shift) {
     m_pid_vel.reset();
   }
@@ -608,13 +637,13 @@ PidLongitudinalController::ControlData PidLongitudinalController::getControlData
     control_data.slope_angle = m_lpf_pitch->getValue();
   }
 
-  updatePitchDebugValues(control_data.slope_angle, traj_pitch, raw_pitch, m_lpf_pitch->getValue());
+  updatePitchDebugValues(
+    m_debug_values, control_data.slope_angle, traj_pitch, raw_pitch, m_lpf_pitch->getValue());
 
   return control_data;
 }
 
-PidLongitudinalController::Motion PidLongitudinalController::calcEmergencyCtrlCmd(
-  const ControlData & control_data)
+Motion PidLongitudinalController::calcEmergencyCtrlCmd(const ControlData & control_data)
 {
   // These accelerations are without slope compensation
   const auto & p = m_emergency_state_params;
@@ -840,8 +869,7 @@ void PidLongitudinalController::updateControlState(const ControlData & control_d
   return;
 }
 
-PidLongitudinalController::Motion PidLongitudinalController::calcCtrlCmd(
-  const ControlData & control_data)
+Motion PidLongitudinalController::calcCtrlCmd(const ControlData & control_data)
 {
   // store current velocity history
   m_smooth_stop->recordMotion(
@@ -887,7 +915,9 @@ PidLongitudinalController::Motion PidLongitudinalController::calcCtrlCmd(
         raw_ctrl_cmd.vel = control_data.interpolated_traj.points.at(control_data.target_idx)
                              .longitudinal_velocity_mps;
         raw_ctrl_cmd.acc = applyVelocityFeedback(control_data);
-        raw_ctrl_cmd = keepBrakeBeforeStop(control_data, raw_ctrl_cmd, target_idx);
+        raw_ctrl_cmd = keepBrakeBeforeStop(
+          control_data, raw_ctrl_cmd, target_idx, m_enable_brake_keeping_before_stop,
+          m_brake_keeping_acc);
 
         RCLCPP_DEBUG(
           logger_,
@@ -936,8 +966,9 @@ PidLongitudinalController::Motion PidLongitudinalController::calcCtrlCmd(
       "%1.3f",
       raw_ctrl_cmd.acc, control_data.current_motion.acc, acc_cmd);
 
-    ctrl_cmd_as_pedal_pos.acc =
-      applySlopeCompensation(acc_cmd, control_data.slope_angle, control_data.shift);
+    ctrl_cmd_as_pedal_pos.acc = applySlopeCompensation(
+      acc_cmd, control_data.slope_angle, control_data.shift, m_enable_slope_compensation,
+      m_min_pitch_rad, m_max_pitch_rad);
     m_debug_values.setValues(DebugValues::TYPE::ACC_CMD_SLOPE_APPLIED, ctrl_cmd_as_pedal_pos.acc);
     ctrl_cmd_as_pedal_pos.vel = raw_ctrl_cmd.vel;
   }
@@ -948,7 +979,7 @@ PidLongitudinalController::Motion PidLongitudinalController::calcCtrlCmd(
     ctrl_cmd_as_pedal_pos.acc, m_prev_ctrl_cmd.acc, control_data.dt, m_max_acc_cmd_diff);
 
   // update debug visualization
-  updateDebugVelAcc(control_data);
+  updateDebugVelAcc(m_debug_values, control_data);
 
   RCLCPP_DEBUG(
     logger_, "[final output]: acc: %3.3f, v_curr: %3.3f", ctrl_cmd_as_pedal_pos.acc,
@@ -1027,8 +1058,9 @@ double PidLongitudinalController::getDt()
   return std::max(std::min(dt, max_dt), min_dt);
 }
 
-enum PidLongitudinalController::Shift PidLongitudinalController::getCurrentShift(
-  const ControlData & control_data) const
+namespace
+{
+Shift getCurrentShift(const ControlData & control_data, const Shift prev_shift)
 {
   constexpr double epsilon = 1e-5;
 
@@ -1041,8 +1073,9 @@ enum PidLongitudinalController::Shift PidLongitudinalController::getCurrentShift
     return Shift::Reverse;
   }
 
-  return m_prev_shift;
+  return prev_shift;
 }
+}  // namespace
 
 void PidLongitudinalController::storeAccelCmd(const double accel)
 {
@@ -1068,13 +1101,16 @@ void PidLongitudinalController::storeAccelCmd(const double accel)
   }
 }
 
-double PidLongitudinalController::applySlopeCompensation(
-  const double input_acc, const double pitch, const Shift shift) const
+namespace
 {
-  if (!m_enable_slope_compensation) {
+double applySlopeCompensation(
+  const double input_acc, const double pitch, const Shift shift,
+  const bool enable_slope_compensation, const double min_pitch_rad, const double max_pitch_rad)
+{
+  if (!enable_slope_compensation) {
     return input_acc;
   }
-  const double pitch_limited = std::min(std::max(pitch, m_min_pitch_rad), m_max_pitch_rad);
+  const double pitch_limited = std::min(std::max(pitch, min_pitch_rad), max_pitch_rad);
 
   // Acceleration command is always positive independent of direction (= shift) when car is running
   double sign = (shift == Shift::Forward) ? 1.0 : (shift == Shift::Reverse ? -1.0 : 0);
@@ -1082,12 +1118,13 @@ double PidLongitudinalController::applySlopeCompensation(
   return compensated_acc;
 }
 
-PidLongitudinalController::Motion PidLongitudinalController::keepBrakeBeforeStop(
-  const ControlData & control_data, const Motion & target_motion, const size_t nearest_idx) const
+Motion keepBrakeBeforeStop(
+  const ControlData & control_data, const Motion & target_motion, const size_t nearest_idx,
+  const bool enable_brake_keeping_before_stop, const double brake_keeping_acc)
 {
   Motion output_motion = target_motion;
 
-  if (m_enable_brake_keeping_before_stop == false) {
+  if (enable_brake_keeping_before_stop == false) {
     return output_motion;
   }
   const auto traj = control_data.interpolated_traj;
@@ -1108,17 +1145,17 @@ PidLongitudinalController::Motion PidLongitudinalController::keepBrakeBeforeStop
     min_acc_idx = ui;
   }
 
-  const double brake_keeping_acc = std::max(m_brake_keeping_acc, min_acc_before_stop);
-  if (nearest_idx >= min_acc_idx && target_motion.acc > brake_keeping_acc) {
-    output_motion.acc = brake_keeping_acc;
+  const double applied_brake_acc = std::max(brake_keeping_acc, min_acc_before_stop);
+  if (nearest_idx >= min_acc_idx && target_motion.acc > applied_brake_acc) {
+    output_motion.acc = applied_brake_acc;
   }
 
   return output_motion;
 }
 
-std::pair<autoware_planning_msgs::msg::TrajectoryPoint, size_t>
-PidLongitudinalController::calcInterpolatedTrajPointAndSegment(
-  const autoware_planning_msgs::msg::Trajectory & traj, const geometry_msgs::msg::Pose & pose) const
+std::pair<autoware_planning_msgs::msg::TrajectoryPoint, size_t> calcInterpolatedTrajPointAndSegment(
+  const autoware_planning_msgs::msg::Trajectory & traj, const geometry_msgs::msg::Pose & pose,
+  const double ego_nearest_dist_threshold, const double ego_nearest_yaw_threshold)
 {
   if (traj.points.size() == 1) {
     return std::make_pair(traj.points.at(0), 0);
@@ -1126,10 +1163,11 @@ PidLongitudinalController::calcInterpolatedTrajPointAndSegment(
 
   // apply linear interpolation
   return longitudinal_utils::lerpTrajectoryPoint(
-    traj.points, pose, m_ego_nearest_dist_threshold, m_ego_nearest_yaw_threshold);
+    traj.points, pose, ego_nearest_dist_threshold, ego_nearest_yaw_threshold);
 }
+}  // namespace
 
-PidLongitudinalController::StateAfterDelay PidLongitudinalController::predictedStateAfterDelay(
+StateAfterDelay PidLongitudinalController::predictedStateAfterDelay(
   const Motion current_motion, const OperationModeState & operation_mode,
   const double delay_compensation_time) const
 {
@@ -1236,41 +1274,44 @@ double PidLongitudinalController::applyVelocityFeedback(const ControlData & cont
   return feedback_acc;
 }
 
-void PidLongitudinalController::updatePitchDebugValues(
-  const double pitch_using, const double traj_pitch, const double localization_pitch,
-  const double localization_pitch_lpf)
+namespace
+{
+void updatePitchDebugValues(
+  DebugValues & debug_values, const double pitch_using, const double traj_pitch,
+  const double localization_pitch, const double localization_pitch_lpf)
 {
   const double to_degrees = (180.0 / static_cast<double>(M_PI));
-  m_debug_values.setValues(DebugValues::TYPE::PITCH_USING_RAD, pitch_using);
-  m_debug_values.setValues(DebugValues::TYPE::PITCH_USING_DEG, pitch_using * to_degrees);
-  m_debug_values.setValues(DebugValues::TYPE::PITCH_LPF_RAD, localization_pitch_lpf);
-  m_debug_values.setValues(DebugValues::TYPE::PITCH_LPF_DEG, localization_pitch_lpf * to_degrees);
-  m_debug_values.setValues(DebugValues::TYPE::PITCH_RAW_RAD, localization_pitch);
-  m_debug_values.setValues(DebugValues::TYPE::PITCH_RAW_DEG, localization_pitch * to_degrees);
-  m_debug_values.setValues(DebugValues::TYPE::PITCH_RAW_TRAJ_RAD, traj_pitch);
-  m_debug_values.setValues(DebugValues::TYPE::PITCH_RAW_TRAJ_DEG, traj_pitch * to_degrees);
+  debug_values.setValues(DebugValues::TYPE::PITCH_USING_RAD, pitch_using);
+  debug_values.setValues(DebugValues::TYPE::PITCH_USING_DEG, pitch_using * to_degrees);
+  debug_values.setValues(DebugValues::TYPE::PITCH_LPF_RAD, localization_pitch_lpf);
+  debug_values.setValues(DebugValues::TYPE::PITCH_LPF_DEG, localization_pitch_lpf * to_degrees);
+  debug_values.setValues(DebugValues::TYPE::PITCH_RAW_RAD, localization_pitch);
+  debug_values.setValues(DebugValues::TYPE::PITCH_RAW_DEG, localization_pitch * to_degrees);
+  debug_values.setValues(DebugValues::TYPE::PITCH_RAW_TRAJ_RAD, traj_pitch);
+  debug_values.setValues(DebugValues::TYPE::PITCH_RAW_TRAJ_DEG, traj_pitch * to_degrees);
 }
 
-void PidLongitudinalController::updateDebugVelAcc(const ControlData & control_data)
+void updateDebugVelAcc(DebugValues & debug_values, const ControlData & control_data)
 {
-  m_debug_values.setValues(DebugValues::TYPE::CURRENT_VEL, control_data.current_motion.vel);
-  m_debug_values.setValues(
+  debug_values.setValues(DebugValues::TYPE::CURRENT_VEL, control_data.current_motion.vel);
+  debug_values.setValues(
     DebugValues::TYPE::TARGET_VEL,
     control_data.interpolated_traj.points.at(control_data.target_idx).longitudinal_velocity_mps);
-  m_debug_values.setValues(
+  debug_values.setValues(
     DebugValues::TYPE::TARGET_ACC,
     control_data.interpolated_traj.points.at(control_data.target_idx).acceleration_mps2);
-  m_debug_values.setValues(
+  debug_values.setValues(
     DebugValues::TYPE::NEAREST_VEL,
     control_data.interpolated_traj.points.at(control_data.nearest_idx).longitudinal_velocity_mps);
-  m_debug_values.setValues(
+  debug_values.setValues(
     DebugValues::TYPE::NEAREST_ACC,
     control_data.interpolated_traj.points.at(control_data.nearest_idx).acceleration_mps2);
-  m_debug_values.setValues(
+  debug_values.setValues(
     DebugValues::TYPE::ERROR_VEL,
     control_data.interpolated_traj.points.at(control_data.nearest_idx).longitudinal_velocity_mps -
       control_data.current_motion.vel);
 }
+}  // namespace
 
 void PidLongitudinalController::setupDiagnosticUpdater()
 {
