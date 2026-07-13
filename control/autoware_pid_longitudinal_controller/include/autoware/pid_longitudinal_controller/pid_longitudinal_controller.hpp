@@ -86,6 +86,8 @@ private:
 
   struct ControlData
   {
+    geometry_msgs::msg::Pose current_pose{};
+    OperationModeState operation_mode{};
     autoware_planning_msgs::msg::Trajectory interpolated_traj{};
     size_t nearest_idx{0};  // nearest_idx = 0 when nearest_idx is not found with findNearestIdx
     size_t target_idx{0};
@@ -116,11 +118,8 @@ private:
   rcl_interfaces::msg::SetParametersResult paramCallback(
     const std::vector<rclcpp::Parameter> & parameters);
 
-  // pointers for ros topic
-  nav_msgs::msg::Odometry m_current_kinematic_state;
-  geometry_msgs::msg::AccelWithCovarianceStamped m_current_accel;
-  autoware_planning_msgs::msg::Trajectory m_trajectory;
-  OperationModeState m_current_operation_mode;
+  // last valid reference trajectory, kept as a fallback when an invalid trajectory is received
+  autoware_planning_msgs::msg::Trajectory m_last_valid_trajectory;
 
   // vehicle info
   double m_wheel_base{0.0};
@@ -268,25 +267,8 @@ private:
   };
 
   /**
-   * @brief set current and previous velocity with received message
-   * @param [in] msg current state message
-   */
-  void setKinematicState(const nav_msgs::msg::Odometry & msg);
-
-  /**
-   * @brief set current acceleration with received message
-   * @param [in] msg trajectory message
-   */
-  void setCurrentAcceleration(const geometry_msgs::msg::AccelWithCovarianceStamped & msg);
-
-  /**
-   * @brief set current operation mode with received message
-   * @param [in] msg operation mode report message
-   */
-  void setCurrentOperationMode(const OperationModeState & msg);
-
-  /**
-   * @brief set reference trajectory with received message
+   * @brief update the last valid reference trajectory with the received message, keeping the
+   * previous one when the message is invalid
    * @param [in] msg trajectory message
    */
   void setTrajectory(const autoware_planning_msgs::msg::Trajectory & msg);
@@ -301,15 +283,15 @@ private:
 
   /**
    * @brief calculate data for controllers whose type is ControlData
-   * @param [in] current_pose current ego pose
+   * @param [in] input_data current input data (odometry, acceleration, operation mode)
    */
-  ControlData getControlData(const geometry_msgs::msg::Pose & current_pose);
+  ControlData getControlData(const trajectory_follower::InputData & input_data);
 
   /**
    * @brief calculate control command in emergency state
-   * @param [in] dt time between previous and current one
+   * @param [in] control_data data for control calculation
    */
-  Motion calcEmergencyCtrlCmd(const double dt);
+  Motion calcEmergencyCtrlCmd(const ControlData & control_data);
 
   /**
    * @brief change control state
@@ -347,11 +329,6 @@ private:
    * @brief calculate time between current and previous one
    */
   double getDt();
-
-  /**
-   * @brief calculate current velocity and acceleration
-   */
-  Motion getCurrentMotion() const;
 
   /**
    * @brief calculate direction (forward or backward) that vehicle moves
@@ -403,10 +380,12 @@ private:
   /**
    * @brief calculate predicted velocity after time delay based on past control commands
    * @param [in] current_motion current velocity and acceleration of the vehicle
+   * @param [in] operation_mode current operation mode
    * @param [in] delay_compensation_time predicted time delay
    */
   StateAfterDelay predictedStateAfterDelay(
-    const Motion current_motion, const double delay_compensation_time) const;
+    const Motion current_motion, const OperationModeState & operation_mode,
+    const double delay_compensation_time) const;
 
   /**
    * @brief calculate velocity feedback with feed forward and pid controller
