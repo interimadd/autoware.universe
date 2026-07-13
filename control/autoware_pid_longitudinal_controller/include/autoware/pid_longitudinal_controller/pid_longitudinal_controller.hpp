@@ -123,7 +123,6 @@ private:
 
   // vehicle info
   double m_wheel_base{0.0};
-  double m_vehicle_width{0.0};
   double m_front_overhang{0.0};
   bool m_prev_vehicle_is_under_control{false};
   std::shared_ptr<rclcpp::Time> m_under_control_starting_time{nullptr};
@@ -146,7 +145,6 @@ private:
   // delay compensation
   double m_delay_compensation_time;
   bool m_use_temporal_trajectory{false};
-  std::optional<double> m_prev_nearest_time{std::nullopt};
 
   // enable flags
   bool m_enable_smooth_stop;
