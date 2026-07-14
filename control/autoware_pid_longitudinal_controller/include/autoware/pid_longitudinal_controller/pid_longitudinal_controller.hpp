@@ -91,6 +91,7 @@ struct ControlData
   double stop_dist{0.0};        // signed distance that is positive when car is before the stopline
   double slope_angle{0.0};
   double dt{0.0};
+  rclcpp::Time current_time{};  // time captured once at the beginning of the control cycle
   double temporal_predicted_time{std::numeric_limits<double>::quiet_NaN()};
   double temporal_fused_time{std::numeric_limits<double>::quiet_NaN()};
 };
@@ -274,8 +275,10 @@ private:
   /**
    * @brief calculate data for controllers whose type is ControlData
    * @param [in] input_data current input data (odometry, acceleration, operation mode)
+   * @param [in] current_time time captured once at the beginning of the control cycle
    */
-  ControlData getControlData(const trajectory_follower::InputData & input_data);
+  ControlData getControlData(
+    const trajectory_follower::InputData & input_data, const rclcpp::Time & current_time);
 
   /**
    * @brief calculate control command in emergency state
@@ -305,8 +308,10 @@ private:
   /**
    * @brief publish control command
    * @param [in] ctrl_cmd calculated control command to control velocity
+   * @param [in] current_time time captured once at the beginning of the control cycle
    */
-  autoware_control_msgs::msg::Longitudinal createCtrlCmdMsg(const Motion & ctrl_cmd);
+  autoware_control_msgs::msg::Longitudinal createCtrlCmdMsg(
+    const Motion & ctrl_cmd, const rclcpp::Time & current_time);
 
   /**
    * @brief publish debug data
@@ -317,24 +322,27 @@ private:
 
   /**
    * @brief calculate time between current and previous one
+   * @param [in] current_time time captured once at the beginning of the control cycle
    */
-  double getDt();
+  double getDt(const rclcpp::Time & current_time);
 
   /**
    * @brief store acceleration command before slope compensation
    * @param [in] accel command before slope compensation
+   * @param [in] current_time time captured once at the beginning of the control cycle
    */
-  void storeAccelCmd(const double accel);
+  void storeAccelCmd(const double accel, const rclcpp::Time & current_time);
 
   /**
    * @brief calculate predicted velocity after time delay based on past control commands
    * @param [in] current_motion current velocity and acceleration of the vehicle
    * @param [in] operation_mode current operation mode
    * @param [in] delay_compensation_time predicted time delay
+   * @param [in] current_time time captured once at the beginning of the control cycle
    */
   StateAfterDelay predictedStateAfterDelay(
     const Motion current_motion, const OperationModeState & operation_mode,
-    const double delay_compensation_time) const;
+    const double delay_compensation_time, const rclcpp::Time & current_time) const;
 
   /**
    * @brief calculate velocity feedback with feed forward and pid controller
@@ -342,7 +350,7 @@ private:
    */
   double applyVelocityFeedback(const ControlData & control_data);
 
-  double getTimeUnderControl();
+  double getTimeUnderControl(const rclcpp::Time & current_time);
 };
 }  // namespace autoware::motion::control::pid_longitudinal_controller
 
