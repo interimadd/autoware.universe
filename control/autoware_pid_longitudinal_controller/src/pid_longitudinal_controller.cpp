@@ -173,7 +173,6 @@ PidLongitudinalController::ControlData PidLongitudinalController::getControlData
     const double nearest_time = std::clamp(elapsed_time, traj_start_time, traj_end_time);
     control_data.temporal_predicted_time = nearest_time;
     control_data.temporal_fused_time = nearest_time;
-    m_prev_nearest_time = nearest_time;
 
     const auto nearest_interpolated_point = longitudinal_utils::lerpTrajectoryPointByTime(
       control_data.interpolated_traj.points, nearest_time);
@@ -239,7 +238,6 @@ PidLongitudinalController::ControlData PidLongitudinalController::getControlData
   // ==========================================================================================
   // Spatial-only de-duplication and index re-acquisition after inserting interpolated points.
   if (!config.use_temporal_trajectory) {
-    m_prev_nearest_time.reset();
     control_data.interpolated_traj.points =
       autoware::motion_utils::removeOverlapPoints(control_data.interpolated_traj.points);
     control_data.nearest_idx = autoware::motion_utils::findFirstNearestIndexWithSoftConstraints(

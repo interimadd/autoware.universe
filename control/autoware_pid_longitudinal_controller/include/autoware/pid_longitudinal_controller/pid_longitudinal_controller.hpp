@@ -252,8 +252,6 @@ private:
   // control state
   ControlState m_control_state{ControlState::STOPPED};
 
-  std::optional<double> m_prev_nearest_time{std::nullopt};
-
   // drive
   PIDController m_pid_vel;
   std::shared_ptr<LowpassFilter1d> m_lpf_vel_error{nullptr};
