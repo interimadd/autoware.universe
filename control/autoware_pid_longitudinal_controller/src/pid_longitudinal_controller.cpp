@@ -79,8 +79,6 @@ PidLongitudinalControllerResult PidLongitudinalController::run(
   const trajectory_follower::InputData & input_data, const rclcpp::Time & current_time,
   const bool is_steer_converged)
 {
-  // capture the lateral convergence state once for this control cycle
-  m_is_steer_converged = is_steer_converged;
   m_received_invalid_trajectory = false;
   m_emergency_stop_reason = std::nullopt;
 
@@ -93,7 +91,7 @@ PidLongitudinalControllerResult PidLongitudinalController::run(
   const auto control_data = getControlData(input_data, current_time);
 
   // update control state
-  updateControlState(control_data);
+  updateControlState(control_data, is_steer_converged);
 
   // calculate control command
   const Motion ctrl_cmd = calcCtrlCmd(control_data);
@@ -349,7 +347,8 @@ void PidLongitudinalController::changeControlState(
   m_control_state = control_state;
 }
 
-void PidLongitudinalController::updateControlState(const ControlData & control_data)
+void PidLongitudinalController::updateControlState(
+  const ControlData & control_data, const bool is_steer_converged)
 {
   const double current_vel = control_data.current_motion.vel;
   const double stop_dist = control_data.stop_dist;
@@ -473,9 +472,9 @@ void PidLongitudinalController::updateControlState(const ControlData & control_d
     if (departure_condition_from_stopped) {
       // Let vehicle start after the steering is converged for dry steering
       const bool current_keep_stopped_condition =
-        std::fabs(current_vel) < vel_epsilon && !m_is_steer_converged;
+        std::fabs(current_vel) < vel_epsilon && !is_steer_converged;
       // NOTE: Dry steering is considered unnecessary when the steering is converged twice in a
-      //       row. This is because m_is_steer_converged is not the current but
+      //       row. This is because is_steer_converged is not the current but
       //       the previous value due to the order controllers' run and sync functions.
       const bool keep_stopped_condition =
         !m_prev_keep_stopped_condition ||

@@ -287,9 +287,6 @@ private:
 
   std::optional<MarkerArray> m_virtual_wall_marker{std::nullopt};
 
-  // whether the lateral controller has converged its steering for this cycle
-  bool m_is_steer_converged{false};
-
   // error causes raised during this run(), to be logged by the caller
   bool m_received_invalid_trajectory{false};
   std::optional<std::string> m_emergency_stop_reason{std::nullopt};
@@ -325,8 +322,9 @@ private:
   /**
    * @brief update control state according to the current situation
    * @param [in] control_data control data
+   * @param [in] is_steer_converged whether the lateral controller has converged its steering
    */
-  void updateControlState(const ControlData & control_data);
+  void updateControlState(const ControlData & control_data, const bool is_steer_converged);
 
   /**
    * @brief calculate control command based on the current control state
