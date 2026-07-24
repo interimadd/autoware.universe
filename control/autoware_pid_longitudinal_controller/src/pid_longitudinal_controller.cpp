@@ -79,8 +79,7 @@ PidLongitudinalControllerResult PidLongitudinalController::run(
   const trajectory_follower::InputData & input_data, const rclcpp::Time & current_time,
   const bool is_steer_converged)
 {
-  // capture the time and lateral convergence state once for this control cycle
-  m_current_time = current_time;
+  // capture the lateral convergence state once for this control cycle
   m_is_steer_converged = is_steer_converged;
   m_received_invalid_trajectory = false;
   m_emergency_stop_reason = std::nullopt;

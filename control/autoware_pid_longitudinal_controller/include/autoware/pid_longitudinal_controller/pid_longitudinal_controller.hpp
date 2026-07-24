@@ -289,9 +289,7 @@ private:
 
   std::optional<MarkerArray> m_virtual_wall_marker{std::nullopt};
 
-  // time captured once per control cycle in run(), and whether the lateral controller has
-  // converged its steering for this cycle
-  rclcpp::Time m_current_time{};
+  // whether the lateral controller has converged its steering for this cycle
   bool m_is_steer_converged{false};
 
   // error causes raised during this run(), to be logged by the caller
