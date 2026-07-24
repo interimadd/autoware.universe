@@ -354,23 +354,10 @@ private:
   double getDt(const rclcpp::Time & current_time);
 
   /**
-   * @brief calculate current velocity and acceleration
-   */
-  Motion getCurrentMotion() const;
-
-  /**
    * @brief calculate direction (forward or backward) that vehicle moves
    * @param [in] control_data data for control calculation
    */
   enum Shift getCurrentShift(const ControlData & control_data) const;
-
-  /**
-   * @brief filter acceleration command with limitation of acceleration and jerk, and slope
-   * compensation
-   * @param [in] raw_acc acceleration before filtered
-   * @param [in] control_data data for control calculation
-   */
-  double calcFilteredAcc(const double raw_acc, const ControlData & control_data);
 
   /**
    * @brief store acceleration command before slope compensation
