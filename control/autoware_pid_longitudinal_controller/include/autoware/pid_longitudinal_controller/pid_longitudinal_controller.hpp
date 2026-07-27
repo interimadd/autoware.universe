@@ -333,14 +333,6 @@ private:
   Motion calcCtrlCmd(const ControlData & control_data);
 
   /**
-   * @brief create the control command message
-   * @param [in] ctrl_cmd calculated control command to control velocity
-   * @param [in] current_time time captured once per control cycle in run()
-   */
-  autoware_control_msgs::msg::Longitudinal createCtrlCmdMsg(
-    const Motion & ctrl_cmd, const rclcpp::Time & current_time) const;
-
-  /**
    * @brief update debug values
    * @param [in] ctrl_cmd calculated control command to control velocity
    * @param [in] control_data data for control calculation

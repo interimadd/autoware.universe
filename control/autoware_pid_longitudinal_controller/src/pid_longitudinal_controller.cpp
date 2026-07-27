@@ -63,6 +63,16 @@ autoware_internal_debug_msgs::msg::Float32MultiArrayStamped createSlopeMessage(
   slope_message.data.push_back(static_cast<decltype(slope_message.data)::value_type>(slope_angle));
   return slope_message;
 }
+
+autoware_control_msgs::msg::Longitudinal createCtrlCmdMsg(
+  const rclcpp::Time & current_time, const double velocity, const double acceleration)
+{
+  autoware_control_msgs::msg::Longitudinal cmd{};
+  cmd.stamp = current_time;
+  cmd.velocity = static_cast<decltype(cmd.velocity)>(velocity);
+  cmd.acceleration = static_cast<decltype(cmd.acceleration)>(acceleration);
+  return cmd;
+}
 }  // namespace
 
 PidLongitudinalController::PidLongitudinalController(const PidLongitudinalControllerConfig & cfg)
@@ -109,7 +119,7 @@ PidLongitudinalControllerResult PidLongitudinalController::run(
   const Motion ctrl_cmd = calcCtrlCmd(control_data);
 
   // create control command
-  const auto cmd_msg = createCtrlCmdMsg(ctrl_cmd, current_time);
+  const auto cmd_msg = createCtrlCmdMsg(current_time, ctrl_cmd.vel, ctrl_cmd.acc);
   trajectory_follower::LongitudinalOutput output;
   output.control_cmd = cmd_msg;
 
@@ -622,18 +632,6 @@ PidLongitudinalController::Motion PidLongitudinalController::calcCtrlCmd(
   m_prev_ctrl_cmd = ctrl_cmd_as_pedal_pos;
 
   return ctrl_cmd_as_pedal_pos;
-}
-
-// Do not use nearest_idx here
-autoware_control_msgs::msg::Longitudinal PidLongitudinalController::createCtrlCmdMsg(
-  const Motion & ctrl_cmd, const rclcpp::Time & current_time) const
-{
-  autoware_control_msgs::msg::Longitudinal cmd{};
-  cmd.stamp = current_time;
-  cmd.velocity = static_cast<decltype(cmd.velocity)>(ctrl_cmd.vel);
-  cmd.acceleration = static_cast<decltype(cmd.acceleration)>(ctrl_cmd.acc);
-
-  return cmd;
 }
 
 void PidLongitudinalController::setDebugValues(
