@@ -619,19 +619,19 @@ PidLongitudinalController::Motion PidLongitudinalController::calcCtrlCmd(
   // update debug visualization
   updateDebugVelAcc(control_data);
 
+  m_prev_ctrl_cmd = ctrl_cmd_as_pedal_pos;
+
   return ctrl_cmd_as_pedal_pos;
 }
 
 // Do not use nearest_idx here
 autoware_control_msgs::msg::Longitudinal PidLongitudinalController::createCtrlCmdMsg(
-  const Motion & ctrl_cmd, const rclcpp::Time & current_time)
+  const Motion & ctrl_cmd, const rclcpp::Time & current_time) const
 {
   autoware_control_msgs::msg::Longitudinal cmd{};
   cmd.stamp = current_time;
   cmd.velocity = static_cast<decltype(cmd.velocity)>(ctrl_cmd.vel);
   cmd.acceleration = static_cast<decltype(cmd.acceleration)>(ctrl_cmd.acc);
-
-  m_prev_ctrl_cmd = ctrl_cmd;
 
   return cmd;
 }
@@ -923,7 +923,7 @@ void PidLongitudinalController::updateDebugVelAcc(const ControlData & control_da
       control_data.current_motion.vel);
 }
 
-double PidLongitudinalController::getTimeUnderControl(const rclcpp::Time & current_time)
+double PidLongitudinalController::getTimeUnderControl(const rclcpp::Time & current_time) const
 {
   if (!m_under_control_starting_time) return 0.0;
   return (current_time - *m_under_control_starting_time).seconds();

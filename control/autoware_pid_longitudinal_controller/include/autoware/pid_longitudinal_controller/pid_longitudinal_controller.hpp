@@ -338,7 +338,7 @@ private:
    * @param [in] current_time time captured once per control cycle in run()
    */
   autoware_control_msgs::msg::Longitudinal createCtrlCmdMsg(
-    const Motion & ctrl_cmd, const rclcpp::Time & current_time);
+    const Motion & ctrl_cmd, const rclcpp::Time & current_time) const;
 
   /**
    * @brief update debug values
@@ -429,7 +429,7 @@ private:
    * @brief calculate elapsed time since the vehicle entered autoware control
    * @param [in] current_time time captured once per control cycle in run()
    */
-  double getTimeUnderControl(const rclcpp::Time & current_time);
+  double getTimeUnderControl(const rclcpp::Time & current_time) const;
 };
 }  // namespace autoware::motion::control::pid_longitudinal_controller
 
