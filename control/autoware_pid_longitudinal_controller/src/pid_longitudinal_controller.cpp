@@ -43,6 +43,26 @@ bool is_valid_trajectory(
 
   return true;
 }
+
+autoware_internal_debug_msgs::msg::Float32MultiArrayStamped createDebugMessage(
+  const rclcpp::Time & current_time, const DebugValues & debug_values)
+{
+  autoware_internal_debug_msgs::msg::Float32MultiArrayStamped debug_message{};
+  debug_message.stamp = current_time;
+  for (const auto & v : debug_values.getValues()) {
+    debug_message.data.push_back(static_cast<decltype(debug_message.data)::value_type>(v));
+  }
+  return debug_message;
+}
+
+autoware_internal_debug_msgs::msg::Float32MultiArrayStamped createSlopeMessage(
+  const rclcpp::Time & current_time, const double slope_angle)
+{
+  autoware_internal_debug_msgs::msg::Float32MultiArrayStamped slope_message{};
+  slope_message.stamp = current_time;
+  slope_message.data.push_back(static_cast<decltype(slope_message.data)::value_type>(slope_angle));
+  return slope_message;
+}
 }  // namespace
 
 PidLongitudinalController::PidLongitudinalController(const PidLongitudinalControllerConfig & cfg)
@@ -106,15 +126,8 @@ PidLongitudinalControllerResult PidLongitudinalController::run(
   result.output = output;
   result.control_state = m_control_state;
 
-  result.debug_message.stamp = current_time;
-  for (const auto & v : m_debug_values.getValues()) {
-    result.debug_message.data.push_back(
-      static_cast<decltype(result.debug_message.data)::value_type>(v));
-  }
-
-  result.slope_message.stamp = current_time;
-  result.slope_message.data.push_back(
-    static_cast<decltype(result.slope_message.data)::value_type>(control_data.slope_angle));
+  result.debug_message = createDebugMessage(current_time, m_debug_values);
+  result.slope_message = createSlopeMessage(current_time, control_data.slope_angle);
 
   if (m_virtual_wall_marker) {
     result.virtual_wall_marker = m_virtual_wall_marker;
