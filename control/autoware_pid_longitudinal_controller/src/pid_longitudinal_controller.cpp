@@ -99,13 +99,11 @@ PidLongitudinalControllerResult PidLongitudinalController::run(
   const trajectory_follower::InputData & input_data, const rclcpp::Time & current_time,
   const bool is_steer_converged)
 {
-  m_emergency_stop_reason = std::nullopt;
-
   // calculate control data
   const auto control_data = getControlData(input_data, current_time);
 
   // update control state
-  updateControlState(control_data, is_steer_converged);
+  const auto emergency_stop_reason = updateControlState(control_data, is_steer_converged);
 
   // calculate control command
   const Motion ctrl_cmd = calcCtrlCmd(control_data);
@@ -135,7 +133,7 @@ PidLongitudinalControllerResult PidLongitudinalController::run(
   }
   result.received_invalid_trajectory =
     !is_valid_trajectory(input_data.current_trajectory, config.use_temporal_trajectory);
-  result.emergency_stop_reason = m_emergency_stop_reason;
+  result.emergency_stop_reason = emergency_stop_reason;
 
   return result;
 }
@@ -344,18 +342,20 @@ PidLongitudinalController::Motion PidLongitudinalController::calcEmergencyCtrlCm
   return raw_ctrl_cmd;
 }
 
-void PidLongitudinalController::changeControlState(
+std::optional<std::string> PidLongitudinalController::changeControlState(
   const ControlState & control_state, const std::string & reason)
 {
+  std::optional<std::string> emergency_stop_reason{std::nullopt};
   if (control_state != m_control_state) {
     if (control_state == ControlState::EMERGENCY) {
-      m_emergency_stop_reason = reason;
+      emergency_stop_reason = reason;
     }
   }
   m_control_state = control_state;
+  return emergency_stop_reason;
 }
 
-void PidLongitudinalController::updateControlState(
+std::optional<std::string> PidLongitudinalController::updateControlState(
   const ControlData & control_data, const bool is_steer_converged)
 {
   const double current_vel = control_data.current_motion.vel;
@@ -450,7 +450,7 @@ void PidLongitudinalController::updateControlState(
         return changeControlState(ControlState::STOPPED);
       }
     }
-    return;
+    return std::nullopt;
   }
 
   // in STOPPING state
@@ -469,13 +469,13 @@ void PidLongitudinalController::updateControlState(
       m_prev_raw_ctrl_cmd.acc = std::max(0.0, m_prev_raw_ctrl_cmd.acc);
       return changeControlState(ControlState::DRIVE);
     }
-    return;
+    return std::nullopt;
   }
 
   // in STOPPED state
   if (m_control_state == ControlState::STOPPED) {
     // keep STOPPED if is_under_control is false
-    if (!is_under_control && stopped_condition) return;
+    if (!is_under_control && stopped_condition) return std::nullopt;
 
     if (departure_condition_from_stopped) {
       // Let vehicle start after the steering is converged for dry steering
@@ -497,7 +497,7 @@ void PidLongitudinalController::updateControlState(
         }
 
         // keep STOPPED
-        return;
+        return std::nullopt;
       }
 
       m_pid_vel.reset();
@@ -506,7 +506,7 @@ void PidLongitudinalController::updateControlState(
       return changeControlState(ControlState::DRIVE);
     }
 
-    return;
+    return std::nullopt;
   }
 
   // in EMERGENCY state
@@ -521,11 +521,12 @@ void PidLongitudinalController::updateControlState(
         return changeControlState(ControlState::DRIVE);
       }
     }
-    return;
+    return std::nullopt;
   }
 
   // NOTE: unreachable. ControlState has only DRIVE, STOPPING, STOPPED, and EMERGENCY, and every
   // branch above returns.
+  return std::nullopt;
 }
 
 PidLongitudinalController::Motion PidLongitudinalController::calcCtrlCmd(

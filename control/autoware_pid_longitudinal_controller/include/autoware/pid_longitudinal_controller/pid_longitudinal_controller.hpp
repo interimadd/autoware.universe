@@ -287,9 +287,6 @@ private:
 
   std::optional<MarkerArray> m_virtual_wall_marker{std::nullopt};
 
-  // error causes raised during this run(), to be logged by the caller
-  std::optional<std::string> m_emergency_stop_reason{std::nullopt};
-
   struct ResultWithReason
   {
     bool result{false};
@@ -315,15 +312,19 @@ private:
    * @brief change control state
    * @param [in] new state
    * @param [in] reason to change control state
+   * @return reason for entering the emergency state, if the new state is EMERGENCY
    */
-  void changeControlState(const ControlState & control_state, const std::string & reason = "");
+  std::optional<std::string> changeControlState(
+    const ControlState & control_state, const std::string & reason = "");
 
   /**
    * @brief update control state according to the current situation
    * @param [in] control_data control data
    * @param [in] is_steer_converged whether the lateral controller has converged its steering
+   * @return reason for entering the emergency state, if it was entered during this call
    */
-  void updateControlState(const ControlData & control_data, const bool is_steer_converged);
+  std::optional<std::string> updateControlState(
+    const ControlData & control_data, const bool is_steer_converged);
 
   /**
    * @brief calculate control command based on the current control state
