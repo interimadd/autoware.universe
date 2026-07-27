@@ -182,7 +182,8 @@ PidLongitudinalController::ControlData PidLongitudinalController::getControlData
   autoware_planning_msgs::msg::TrajectoryPoint target_point;
 
   if (config.use_temporal_trajectory) {
-    const rclcpp::Time traj_stamp(m_last_valid_trajectory.header.stamp);
+    const rclcpp::Time traj_stamp(
+      m_last_valid_trajectory.header.stamp, current_time.get_clock_type());
     const double elapsed_time = (current_time - traj_stamp).seconds();
     const double nearest_time = std::clamp(elapsed_time, traj_start_time, traj_end_time);
     control_data.temporal_predicted_time = nearest_time;
@@ -692,13 +693,7 @@ enum PidLongitudinalController::Shift PidLongitudinalController::getCurrentShift
 void PidLongitudinalController::storeAccelCmd(const double accel, const rclcpp::Time & current_time)
 {
   if (m_control_state == ControlState::DRIVE) {
-    // convert format
-    autoware_control_msgs::msg::Longitudinal cmd;
-    cmd.stamp = current_time;
-    cmd.acceleration = static_cast<decltype(cmd.acceleration)>(accel);
-
-    // store published ctrl cmd
-    m_ctrl_cmd_vec.emplace_back(cmd);
+    m_ctrl_cmd_vec.push_back(TimestampedAcceleration{current_time, accel});
   } else {
     // reset command
     m_ctrl_cmd_vec.clear();
@@ -811,9 +806,7 @@ PidLongitudinalController::StateAfterDelay PidLongitudinalController::predictedS
               (control_data.current_time - m_ctrl_cmd_vec.back().stamp).seconds(),
               delay_compensation_time)
           : std::min(
-              (rclcpp::Time(m_ctrl_cmd_vec.at(i + 1).stamp) -
-               rclcpp::Time(m_ctrl_cmd_vec.at(i).stamp))
-                .seconds(),
+              (m_ctrl_cmd_vec.at(i + 1).stamp - m_ctrl_cmd_vec.at(i).stamp).seconds(),
               delay_compensation_time);
       const double acc = m_ctrl_cmd_vec.at(i).acceleration;
       // because acc_cmd is positive when vehicle is running backward

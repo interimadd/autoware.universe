@@ -210,6 +210,12 @@ private:
     double vel{0.0};
     double acc{0.0};
   };
+  // entry of the sent-acceleration-command history buffer used for delay compensation
+  struct TimestampedAcceleration
+  {
+    rclcpp::Time stamp;
+    double acceleration{0.0};
+  };
   struct StateAfterDelay
   {
     StateAfterDelay(const double velocity, const double acceleration, const double distance)
@@ -266,7 +272,7 @@ private:
   std::optional<double> m_previous_slope_angle{std::nullopt};
 
   // buffer of send command
-  std::vector<autoware_control_msgs::msg::Longitudinal> m_ctrl_cmd_vec;
+  std::vector<TimestampedAcceleration> m_ctrl_cmd_vec;
 
   // for calculating dt
   std::shared_ptr<rclcpp::Time> m_prev_control_time{nullptr};
