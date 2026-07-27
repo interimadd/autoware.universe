@@ -288,7 +288,6 @@ private:
   std::optional<MarkerArray> m_virtual_wall_marker{std::nullopt};
 
   // error causes raised during this run(), to be logged by the caller
-  bool m_received_invalid_trajectory{false};
   std::optional<std::string> m_emergency_stop_reason{std::nullopt};
 
   struct ResultWithReason

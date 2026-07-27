@@ -79,13 +79,7 @@ PidLongitudinalControllerResult PidLongitudinalController::run(
   const trajectory_follower::InputData & input_data, const rclcpp::Time & current_time,
   const bool is_steer_converged)
 {
-  m_received_invalid_trajectory = false;
   m_emergency_stop_reason = std::nullopt;
-
-  // check input data
-  if (!is_valid_trajectory(input_data.current_trajectory, config.use_temporal_trajectory)) {
-    m_received_invalid_trajectory = true;
-  }
 
   // calculate control data
   const auto control_data = getControlData(input_data, current_time);
@@ -126,7 +120,8 @@ PidLongitudinalControllerResult PidLongitudinalController::run(
     result.virtual_wall_marker = m_virtual_wall_marker;
     m_virtual_wall_marker.reset();
   }
-  result.received_invalid_trajectory = m_received_invalid_trajectory;
+  result.received_invalid_trajectory =
+    !is_valid_trajectory(input_data.current_trajectory, config.use_temporal_trajectory);
   result.emergency_stop_reason = m_emergency_stop_reason;
 
   return result;
