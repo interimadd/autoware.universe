@@ -284,7 +284,6 @@ trajectory_follower::LateralOutput MpcLateralController::run(
                                   : 0.0;
   m_current_steering.steering_tire_angle += static_cast<float>(m_steering_offset_filtered_);
 
-  Lateral ctrl_cmd;
   Float32MultiArrayStamped debug_values;
 
   const bool is_under_control = input_data.current_operation_mode.is_autoware_control_enabled &&
@@ -298,7 +297,8 @@ trajectory_follower::LateralOutput MpcLateralController::run(
 
   trajectory_follower::LateralHorizon ctrl_cmd_horizon{};
   auto mpc_solved_status = m_mpc->calculateMPC(
-    m_current_steering, m_current_kinematic_state, ctrl_cmd, debug_values, ctrl_cmd_horizon);
+    m_current_steering, m_current_kinematic_state, debug_values, ctrl_cmd_horizon);
+  Lateral ctrl_cmd = mpc_solved_status.ctrl_cmd;
 
   if (
     (m_mpc_solved_status.result == true && mpc_solved_status.result == false) ||

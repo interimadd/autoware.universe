@@ -210,6 +210,7 @@ struct MpcResult
   bool result{false};
   std::string reason{""};
   Trajectory predicted_trajectory{};
+  Lateral ctrl_cmd{};
 };
 
 /**
@@ -478,12 +479,12 @@ public:
    * @brief Calculate control command using the MPC algorithm.
    * @param current_steer Current steering report.
    * @param current_kinematics Current vehicle kinematics.
-   * @param ctrl_cmd Computed lateral control command.
    * @param diagnostic Diagnostic data for debugging purposes.
-   * @return The MPC result, including success/failure status and the predicted trajectory.
+   * @return The MPC result, including success/failure status, the computed control command, and
+   * the predicted trajectory.
    */
   MpcResult calculateMPC(
-    const SteeringReport & current_steer, const Odometry & current_kinematics, Lateral & ctrl_cmd,
+    const SteeringReport & current_steer, const Odometry & current_kinematics,
     Float32MultiArrayStamped & diagnostic, LateralHorizon & ctrl_cmd_horizon);
 
   /**

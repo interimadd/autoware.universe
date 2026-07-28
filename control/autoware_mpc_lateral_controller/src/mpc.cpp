@@ -93,7 +93,7 @@ MPC::MPC(rclcpp::Node & node)
 }
 
 MpcResult MPC::calculateMPC(
-  const SteeringReport & current_steer, const Odometry & current_kinematics, Lateral & ctrl_cmd,
+  const SteeringReport & current_steer, const Odometry & current_kinematics,
   Float32MultiArrayStamped & diagnostic, LateralHorizon & ctrl_cmd_horizon)
 {
   // since the reference trajectory does not take into account the current velocity of the ego
@@ -161,6 +161,7 @@ MpcResult MPC::calculateMPC(
   const double u_filtered = m_lpf_steering_cmd.filter(u_saturated);
 
   // set control command
+  Lateral ctrl_cmd{};
   ctrl_cmd.steering_tire_angle = static_cast<float>(u_filtered);
   ctrl_cmd.steering_tire_rotation_rate = static_cast<float>(calcDesiredSteeringRate(
     mpc_matrix, x0_delayed, Uex, u_filtered, current_steer.steering_tire_angle, prediction_dt));
@@ -208,7 +209,7 @@ MpcResult MPC::calculateMPC(
     ctrl_cmd_horizon.controls.push_back(lateral);
   }
 
-  return MpcResult{true, "", predicted_trajectory};
+  return MpcResult{true, "", predicted_trajectory, ctrl_cmd};
 }
 
 Float32MultiArrayStamped MPC::generateDiagData(
