@@ -23,6 +23,8 @@
 #include "autoware/trajectory_follower_base/control_horizon.hpp"
 #include "rclcpp/rclcpp.hpp"
 
+#include <tl_expected/expected.hpp>
+
 #include "autoware_control_msgs/msg/lateral.hpp"
 #include "autoware_internal_debug_msgs/msg/float32_multi_array_stamped.hpp"
 #include "autoware_planning_msgs/msg/trajectory.hpp"
@@ -250,9 +252,9 @@ private:
    * @param trajectory The reference trajectory.
    * @param current_steer The current steering report.
    * @param current_kinematics The current vehicle kinematics.
-   * @return A pair of a boolean flag indicating success and the MPC data.
+   * @return The MPC data on success, or the failure reason on error.
    */
-  std::pair<ResultWithReason, MPCData> getData(
+  tl::expected<MPCData, std::string> getData(
     const MPCTrajectory & trajectory, const SteeringReport & current_steer,
     const Odometry & current_kinematics);
 
@@ -268,9 +270,9 @@ private:
    * @param traj The reference trajectory to follow.
    * @param start_time The time where x0_orig is defined.
    * @param x0_orig The original initial state vector.
-   * @return A pair of a boolean flag indicating success and the updated state at delayed_time.
+   * @return The updated state at delayed_time on success, or the failure reason on error.
    */
-  std::pair<bool, VectorXd> updateStateForDelayCompensation(
+  tl::expected<VectorXd, std::string> updateStateForDelayCompensation(
     const MPCTrajectory & traj, const double & start_time, const VectorXd & x0_orig);
 
   /**
@@ -290,9 +292,9 @@ private:
    * @param prediction_dt The prediction time step.
    * @param [in] trajectory mpc reference trajectory
    * @param [in] current_velocity current ego velocity
-   * @return A pair of a boolean flag indicating success and the optimized input vector.
+   * @return The optimized input vector on success, or the failure reason on error.
    */
-  std::pair<ResultWithReason, VectorXd> executeOptimization(
+  tl::expected<VectorXd, std::string> executeOptimization(
     const MPCMatrix & mpc_matrix, const VectorXd & x0, const double prediction_dt,
     const MPCTrajectory & trajectory, const double current_velocity);
 
@@ -301,9 +303,9 @@ private:
    * @param start_time The start time for resampling.
    * @param prediction_dt The prediction time step.
    * @param input The input trajectory.
-   * @return A pair of a boolean flag indicating success and the resampled trajectory.
+   * @return The resampled trajectory on success, or the failure reason on error.
    */
-  std::pair<ResultWithReason, MPCTrajectory> resampleMPCTrajectoryByTime(
+  tl::expected<MPCTrajectory, std::string> resampleMPCTrajectoryByTime(
     const double start_time, const double prediction_dt, const MPCTrajectory & input) const;
 
   /**

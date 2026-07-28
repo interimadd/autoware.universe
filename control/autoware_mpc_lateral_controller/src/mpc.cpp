@@ -103,11 +103,11 @@ ResultWithReason MPC::calculateMPC(
     applyVelocityDynamicsFilter(m_reference_trajectory, current_kinematics);
 
   // get the necessary data
-  const auto [get_data_result, mpc_data_raw] =
-    getData(reference_trajectory, current_steer, current_kinematics);
-  if (!get_data_result.result) {
-    return ResultWithReason{false, fmt::format("getting MPC Data ({}).", get_data_result.reason)};
+  const auto get_data_result = getData(reference_trajectory, current_steer, current_kinematics);
+  if (!get_data_result) {
+    return ResultWithReason{false, fmt::format("getting MPC Data ({}).", get_data_result.error())};
   }
+  const auto & mpc_data_raw = get_data_result.value();
 
   // For temporal mode, shift the internal MPC time origin to the ego-projected nearest point.
   // This keeps planner-provided time intervals while making t=0 correspond to "current ego".
@@ -125,34 +125,38 @@ ResultWithReason MPC::calculateMPC(
   const auto x0 = getInitialState(mpc_data);
 
   // apply time delay compensation to the initial state
-  const auto [success_delay, x0_delayed] =
+  const auto delay_compensation_result =
     updateStateForDelayCompensation(mpc_reference_trajectory, mpc_data.nearest_time, x0);
-  if (!success_delay) {
-    return ResultWithReason{false, "delay compensation."};
+  if (!delay_compensation_result) {
+    return ResultWithReason{
+      false, fmt::format("delay compensation ({}).", delay_compensation_result.error())};
   }
+  const auto & x0_delayed = delay_compensation_result.value();
 
   // resample reference trajectory with mpc sampling time
   const double mpc_start_time = mpc_data.nearest_time + m_param.input_delay;
   const double prediction_dt =
     getPredictionDeltaTime(mpc_start_time, mpc_reference_trajectory, current_kinematics);
 
-  const auto [resample_result, mpc_resampled_ref_trajectory] =
+  const auto resample_result =
     resampleMPCTrajectoryByTime(mpc_start_time, prediction_dt, mpc_reference_trajectory);
-  if (!resample_result.result) {
+  if (!resample_result) {
     return ResultWithReason{
-      false, fmt::format("trajectory resampling ({}).", resample_result.reason)};
+      false, fmt::format("trajectory resampling ({}).", resample_result.error())};
   }
+  const auto & mpc_resampled_ref_trajectory = resample_result.value();
 
   // generate mpc matrix : predict equation Xec = Aex * x0 + Bex * Uex + Wex
   const auto mpc_matrix = generateMPCMatrix(mpc_resampled_ref_trajectory, prediction_dt);
 
   // solve Optimization problem
-  const auto [opt_result, Uex] = executeOptimization(
+  const auto opt_result = executeOptimization(
     mpc_matrix, x0_delayed, prediction_dt, mpc_resampled_ref_trajectory,
     current_kinematics.twist.twist.linear.x);
-  if (!opt_result.result) {
-    return ResultWithReason{false, fmt::format("optimization failure ({}).", opt_result.reason)};
+  if (!opt_result) {
+    return ResultWithReason{false, fmt::format("optimization failure ({}).", opt_result.error())};
   }
+  const auto & Uex = opt_result.value();
 
   // apply filters for the input limitation and low pass filter
   const double u_saturated = std::clamp(Uex(0), -m_steer_lim, m_steer_lim);
@@ -372,7 +376,7 @@ void MPC::resetPrevResult(const SteeringReport & current_steer)
   m_raw_steer_cmd_pprev = std::clamp(current_steer.steering_tire_angle, -steer_lim_f, steer_lim_f);
 }
 
-std::pair<ResultWithReason, MPCData> MPC::getData(
+tl::expected<MPCData, std::string> MPC::getData(
   const MPCTrajectory & traj, const SteeringReport & current_steer,
   const Odometry & current_kinematics)
 {
@@ -391,14 +395,14 @@ std::pair<ResultWithReason, MPCData> MPC::getData(
 
     if (!interpolateReferenceStateAtTime(
           traj, fused_time, &(data.nearest_pose), &(data.nearest_time), &(data.nearest_idx))) {
-      return {ResultWithReason{false, "error in calculating temporal nearest pose"}, MPCData{}};
+      return tl::make_unexpected("error in calculating temporal nearest pose");
     }
     m_prev_nearest_time = data.nearest_time;
   } else {
     if (!MPCUtils::calcNearestPoseInterp(
           traj, current_pose, &(data.nearest_pose), &(data.nearest_idx), &(data.nearest_time),
           ego_nearest_dist_threshold, ego_nearest_yaw_threshold)) {
-      return {ResultWithReason{false, "error in calculating nearest pose"}, MPCData{}};
+      return tl::make_unexpected("error in calculating nearest pose");
     }
     m_prev_nearest_time.reset();
   }
@@ -426,9 +430,9 @@ std::pair<ResultWithReason, MPCData> MPC::getData(
   auto end_time =
     data.nearest_time + m_param.input_delay + m_ctrl_period + required_prediction_time;
   if (end_time > traj.relative_time.back()) {
-    return {ResultWithReason{false, "path is too short for prediction."}, MPCData{}};
+    return tl::make_unexpected("path is too short for prediction.");
   }
-  return {ResultWithReason{true}, data};
+  return data;
 }
 
 void MPC::publishNearestDebug(
@@ -527,7 +531,7 @@ void MPC::publishNearestDebug(
   m_debug_nearest_info_pub->publish(info_msg);
 }
 
-std::pair<ResultWithReason, MPCTrajectory> MPC::resampleMPCTrajectoryByTime(
+tl::expected<MPCTrajectory, std::string> MPC::resampleMPCTrajectoryByTime(
   const double ts, const double prediction_dt, const MPCTrajectory & input) const
 {
   MPCTrajectory output;
@@ -536,7 +540,7 @@ std::pair<ResultWithReason, MPCTrajectory> MPC::resampleMPCTrajectoryByTime(
     mpc_time_v.push_back(ts + i * prediction_dt);
   }
   if (!MPCUtils::linearInterpMPCTrajectory(input.relative_time, input, mpc_time_v, output)) {
-    return {ResultWithReason{false, "mpc resample error"}, {}};
+    return tl::make_unexpected("mpc resample error");
   }
   // Publish resampled reference trajectory for debug purpose.
   if (m_publish_debug_trajectories) {
@@ -545,7 +549,7 @@ std::pair<ResultWithReason, MPCTrajectory> MPC::resampleMPCTrajectoryByTime(
     converted_output.header.frame_id = "map";
     m_debug_resampled_reference_trajectory_pub->publish(converted_output);
   }
-  return {ResultWithReason{true}, output};
+  return output;
 }
 
 VectorXd MPC::getInitialState(const MPCData & data)
@@ -578,7 +582,7 @@ VectorXd MPC::getInitialState(const MPCData & data)
   return x0;
 }
 
-std::pair<bool, VectorXd> MPC::updateStateForDelayCompensation(
+tl::expected<VectorXd, std::string> MPC::updateStateForDelayCompensation(
   const MPCTrajectory & traj, const double & start_time, const VectorXd & x0_orig)
 {
   const int DIM_X = m_vehicle_model_ptr->getDimX();
@@ -602,7 +606,7 @@ std::pair<bool, VectorXd> MPC::updateStateForDelayCompensation(
       v = autoware::interpolation::lerp(traj.relative_time, traj.vx, mpc_curr_time);
     } catch (const std::exception & e) {
       RCLCPP_ERROR(m_logger, "mpc resample failed at delay compensation, stop mpc: %s", e.what());
-      return {false, {}};
+      return tl::make_unexpected(std::string(e.what()));
     }
 
     // get discrete state matrix A, B, C, W
@@ -614,7 +618,7 @@ std::pair<bool, VectorXd> MPC::updateStateForDelayCompensation(
     x_curr = Ad * x_curr + Bd * ud + Wd;
     mpc_curr_time += m_ctrl_period;
   }
-  return {true, x_curr};
+  return x_curr;
 }
 
 MPCTrajectory MPC::applyVelocityDynamicsFilter(
@@ -778,14 +782,14 @@ MPCMatrix MPC::generateMPCMatrix(
  *                            ~~~
  * [    -au_lim * dt    ] < [uN-uN-1] < [     au_lim * dt    ] (*N... DIM_U)
  */
-std::pair<ResultWithReason, VectorXd> MPC::executeOptimization(
+tl::expected<VectorXd, std::string> MPC::executeOptimization(
   const MPCMatrix & m, const VectorXd & x0, const double prediction_dt, const MPCTrajectory & traj,
   const double current_velocity)
 {
   VectorXd Uex;
 
   if (!isValid(m)) {
-    return {ResultWithReason{false, "invalid model matrix"}, {}};
+    return tl::make_unexpected("invalid model matrix");
   }
 
   const int DIM_U_N = m_param.prediction_horizon * m_vehicle_model_ptr->getDimU();
@@ -823,7 +827,7 @@ std::pair<ResultWithReason, VectorXd> MPC::executeOptimization(
   auto t_end = std::chrono::system_clock::now();
   if (!solve_result.success) {
     RCLCPP_WARN(m_logger, "%s", solve_result.warning_message.c_str());
-    return {ResultWithReason{false, "qp solver error"}, {}};
+    return tl::make_unexpected("qp solver error");
   }
   if (!solve_result.warning_message.empty()) {
     RCLCPP_WARN_THROTTLE(m_logger, *m_clock, 1000, "%s", solve_result.warning_message.c_str());
@@ -835,9 +839,9 @@ std::pair<ResultWithReason, VectorXd> MPC::executeOptimization(
   }
 
   if (Uex.array().isNaN().any()) {
-    return {ResultWithReason{false, "model Uex including NaN"}, {}};
+    return tl::make_unexpected("model Uex including NaN");
   }
-  return {ResultWithReason{true}, Uex};
+  return Uex;
 }
 
 void MPC::addSteerWeightR(const double prediction_dt, MatrixXd & R) const
