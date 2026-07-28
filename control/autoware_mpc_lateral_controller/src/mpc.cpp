@@ -92,10 +92,9 @@ MPC::MPC(rclcpp::Node & node)
     node.create_publisher<Float32MultiArrayStamped>("~/debug/nearest_info", rclcpp::QoS(1));
 }
 
-ResultWithReason MPC::calculateMPC(
+MpcResult MPC::calculateMPC(
   const SteeringReport & current_steer, const Odometry & current_kinematics, Lateral & ctrl_cmd,
-  Trajectory & predicted_trajectory, Float32MultiArrayStamped & diagnostic,
-  LateralHorizon & ctrl_cmd_horizon)
+  Float32MultiArrayStamped & diagnostic, LateralHorizon & ctrl_cmd_horizon)
 {
   // since the reference trajectory does not take into account the current velocity of the ego
   // vehicle, it needs to calculate the trajectory velocity considering the longitudinal dynamics.
@@ -105,7 +104,7 @@ ResultWithReason MPC::calculateMPC(
   // get the necessary data
   const auto get_data_result = getData(reference_trajectory, current_steer, current_kinematics);
   if (!get_data_result) {
-    return ResultWithReason{false, fmt::format("getting MPC Data ({}).", get_data_result.error())};
+    return MpcResult{false, fmt::format("getting MPC Data ({}).", get_data_result.error())};
   }
   const auto & mpc_data_raw = get_data_result.value();
 
@@ -128,7 +127,7 @@ ResultWithReason MPC::calculateMPC(
   const auto delay_compensation_result =
     updateStateForDelayCompensation(mpc_reference_trajectory, mpc_data.nearest_time, x0);
   if (!delay_compensation_result) {
-    return ResultWithReason{
+    return MpcResult{
       false, fmt::format("delay compensation ({}).", delay_compensation_result.error())};
   }
   const auto & x0_delayed = delay_compensation_result.value();
@@ -141,8 +140,7 @@ ResultWithReason MPC::calculateMPC(
   const auto resample_result =
     resampleMPCTrajectoryByTime(mpc_start_time, prediction_dt, mpc_reference_trajectory);
   if (!resample_result) {
-    return ResultWithReason{
-      false, fmt::format("trajectory resampling ({}).", resample_result.error())};
+    return MpcResult{false, fmt::format("trajectory resampling ({}).", resample_result.error())};
   }
   const auto & mpc_resampled_ref_trajectory = resample_result.value();
 
@@ -154,7 +152,7 @@ ResultWithReason MPC::calculateMPC(
     mpc_matrix, x0_delayed, prediction_dt, mpc_resampled_ref_trajectory,
     current_kinematics.twist.twist.linear.x);
   if (!opt_result) {
-    return ResultWithReason{false, fmt::format("optimization failure ({}).", opt_result.error())};
+    return MpcResult{false, fmt::format("optimization failure ({}).", opt_result.error())};
   }
   const auto & Uex = opt_result.value();
 
@@ -180,7 +178,7 @@ ResultWithReason MPC::calculateMPC(
 
   /* calculate predicted trajectory */
   Eigen::VectorXd initial_state = m_use_delayed_initial_state ? x0_delayed : x0;
-  predicted_trajectory = calculatePredictedTrajectory(
+  const auto predicted_trajectory = calculatePredictedTrajectory(
     mpc_matrix, initial_state, Uex, mpc_resampled_ref_trajectory, prediction_dt, "world");
 
   // Publish predicted trajectories in different coordinates for debugging purposes
@@ -210,7 +208,7 @@ ResultWithReason MPC::calculateMPC(
     ctrl_cmd_horizon.controls.push_back(lateral);
   }
 
-  return ResultWithReason{true};
+  return MpcResult{true, "", predicted_trajectory};
 }
 
 Float32MultiArrayStamped MPC::generateDiagData(

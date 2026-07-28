@@ -205,10 +205,11 @@ struct MPCMatrix
   MPCMatrix() = default;
 };
 
-struct ResultWithReason
+struct MpcResult
 {
   bool result{false};
   std::string reason{""};
+  Trajectory predicted_trajectory{};
 };
 
 /**
@@ -478,14 +479,12 @@ public:
    * @param current_steer Current steering report.
    * @param current_kinematics Current vehicle kinematics.
    * @param ctrl_cmd Computed lateral control command.
-   * @param predicted_trajectory Predicted trajectory based on MPC result.
    * @param diagnostic Diagnostic data for debugging purposes.
-   * @return True if the MPC calculation is successful, false otherwise.
+   * @return The MPC result, including success/failure status and the predicted trajectory.
    */
-  ResultWithReason calculateMPC(
+  MpcResult calculateMPC(
     const SteeringReport & current_steer, const Odometry & current_kinematics, Lateral & ctrl_cmd,
-    Trajectory & predicted_trajectory, Float32MultiArrayStamped & diagnostic,
-    LateralHorizon & ctrl_cmd_horizon);
+    Float32MultiArrayStamped & diagnostic, LateralHorizon & ctrl_cmd_horizon);
 
   /**
    * @brief Set the reference trajectory to be followed.
