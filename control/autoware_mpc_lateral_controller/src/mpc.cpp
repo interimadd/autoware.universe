@@ -819,10 +819,14 @@ std::pair<ResultWithReason, VectorXd> MPC::executeOptimization(
   lbA(0) = m_raw_steer_cmd_prev - steer_rate_limits(0) * m_ctrl_period;
 
   auto t_start = std::chrono::system_clock::now();
-  bool solve_result = m_qpsolver_ptr->solve(H, f.transpose(), A, lb, ub, lbA, ubA, Uex);
+  const auto solve_result = m_qpsolver_ptr->solve(H, f.transpose(), A, lb, ub, lbA, ubA, Uex);
   auto t_end = std::chrono::system_clock::now();
-  if (!solve_result) {
+  if (!solve_result.success) {
+    RCLCPP_WARN(m_logger, "%s", solve_result.warning_message.c_str());
     return {ResultWithReason{false, "qp solver error"}, {}};
+  }
+  if (!solve_result.warning_message.empty()) {
+    RCLCPP_WARN_THROTTLE(m_logger, *m_clock, 1000, "%s", solve_result.warning_message.c_str());
   }
 
   {

@@ -237,7 +237,7 @@ std::shared_ptr<QPSolverInterface> MpcLateralController::createQPSolverInterface
   }
 
   if (qp_solver_type == "osqp") {
-    qpsolver_ptr = std::make_shared<QPSolverOSQP>(logger_, clock_);
+    qpsolver_ptr = std::make_shared<QPSolverOSQP>();
     return qpsolver_ptr;
   }
 
