@@ -169,6 +169,9 @@ struct MPCData
   // Ego-nearest trajectory segment, used for debugging.
   Trajectory nearest_segment_trajectory{};
 
+  // Ego-nearest tracking info, used for debugging.
+  Float32MultiArrayStamped nearest_info{};
+
   // Temporal tracking debug values.
   double temporal_predicted_time{std::numeric_limits<double>::quiet_NaN()};
   double temporal_observed_time{std::numeric_limits<double>::quiet_NaN()};
@@ -218,6 +221,7 @@ struct MpcDebugTopicMessage
   Trajectory resampled_reference_trajectory{};
   PoseStamped nearest_pose{};
   Trajectory nearest_segment_trajectory{};
+  Float32MultiArrayStamped nearest_info{};
 };
 
 struct MpcResult
@@ -262,7 +266,6 @@ private:
   bool m_is_forward_shift = true;  // Flag indicating if the shift is in the forward direction.
   std::optional<double> m_prev_nearest_time{};  // Stabilized nearest trajectory time.
 
-  rclcpp::Publisher<Float32MultiArrayStamped>::SharedPtr m_debug_nearest_info_pub;
   /**
    * @brief Get variables for MPC calculation.
    * @param trajectory The reference trajectory.
@@ -426,13 +429,18 @@ private:
     const Odometry & current_kinematics) const;
 
   /**
-   * @brief Publish nearest-point debug information for RViz and log analysis.
+   * @brief Build the ego-nearest tracking info debug message.
    * @param traj The current reference trajectory.
    * @param self_pose The current ego pose.
    * @param mpc_data The nearest-point related MPC data.
+   * @param nearest_idx Index of the nearest point in the trajectory.
+   * @param prev_idx Index of the previous point of the ego-nearest segment.
+   * @param next_idx Index of the next point of the ego-nearest segment.
+   * @return The built debug message.
    */
-  void publishNearestDebug(
-    const MPCTrajectory & traj, const Pose & self_pose, const MPCData & mpc_data) const;
+  Float32MultiArrayStamped buildNearestInfoMessage(
+    const MPCTrajectory & traj, const Pose & self_pose, const MPCData & mpc_data,
+    const size_t nearest_idx, const size_t prev_idx, const size_t next_idx) const;
 
   /**
    * @brief calculate steering rate limit along with the target trajectory

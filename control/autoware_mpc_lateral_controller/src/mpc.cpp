@@ -126,12 +126,11 @@ Trajectory buildNearestSegmentTrajectory(
   }
   return nearest_segment_trajectory;
 }
+
 }  // namespace
 
-MPC::MPC(rclcpp::Node & node)
+MPC::MPC(rclcpp::Node & /*node*/)
 {
-  m_debug_nearest_info_pub =
-    node.create_publisher<Float32MultiArrayStamped>("~/debug/nearest_info", rclcpp::QoS(1));
 }
 
 MpcResult MPC::calculateMPC(
@@ -272,7 +271,7 @@ MpcResult MPC::calculateMPC(
     diagnostic,
     MpcDebugTopicMessage{
       predicted_trajectory_frenet, resampled_reference_trajectory, nearest_pose,
-      mpc_data_raw.nearest_segment_trajectory}};
+      mpc_data_raw.nearest_segment_trajectory, mpc_data_raw.nearest_info}};
 }
 
 Float32MultiArrayStamped MPC::generateDiagData(
@@ -488,7 +487,9 @@ tl::expected<MPCData, std::string> MPC::getData(
       data.nearest_segment_next_idx = nearest_segment_indices.next_idx;
       data.nearest_segment_trajectory =
         buildNearestSegmentTrajectory(autoware_traj, nearest_idx, nearest_segment_indices);
-      publishNearestDebug(traj, current_pose, data);
+      data.nearest_info = buildNearestInfoMessage(
+        traj, current_pose, data, nearest_idx, data.nearest_segment_prev_idx,
+        data.nearest_segment_next_idx);
     }
   }
 
@@ -507,18 +508,10 @@ tl::expected<MPCData, std::string> MPC::getData(
   return data;
 }
 
-void MPC::publishNearestDebug(
-  const MPCTrajectory & traj, const Pose & self_pose, const MPCData & mpc_data) const
+Float32MultiArrayStamped MPC::buildNearestInfoMessage(
+  const MPCTrajectory & traj, const Pose & self_pose, const MPCData & mpc_data,
+  const size_t nearest_idx, const size_t prev_idx, const size_t next_idx) const
 {
-  if (traj.empty()) {
-    return;
-  }
-
-  const auto now = m_clock->now();
-  const size_t nearest_idx = std::min(mpc_data.nearest_idx, traj.size() - 1);
-  const size_t prev_idx = mpc_data.nearest_segment_prev_idx;
-  const size_t next_idx = mpc_data.nearest_segment_next_idx;
-
   const double prev_t = traj.relative_time.at(prev_idx);
   const double next_t = traj.relative_time.at(next_idx);
   const double dt = next_t - prev_t;
@@ -533,7 +526,6 @@ void MPC::publishNearestDebug(
   const double longitudinal_error = std::cos(nearest_yaw) * dx + std::sin(nearest_yaw) * dy;
 
   Float32MultiArrayStamped info_msg;
-  info_msg.stamp = now;
   info_msg.data.reserve(15);
   info_msg.data.push_back(static_cast<float>(nearest_idx));            // [0] nearest_idx
   info_msg.data.push_back(static_cast<float>(mpc_data.nearest_time));  // [1] nearest_time [s]
@@ -557,7 +549,7 @@ void MPC::publishNearestDebug(
     static_cast<float>(mpc_data.temporal_window_min));  // [13] temporal window min [s]
   info_msg.data.push_back(
     static_cast<float>(mpc_data.temporal_window_max));  // [14] temporal window max [s]
-  m_debug_nearest_info_pub->publish(info_msg);
+  return info_msg;
 }
 
 tl::expected<MPCTrajectory, std::string> MPC::resampleMPCTrajectoryByTime(

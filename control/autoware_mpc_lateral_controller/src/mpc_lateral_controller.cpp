@@ -172,6 +172,7 @@ MpcLateralController::MpcLateralController(
     node.create_publisher<Trajectory>("~/debug/resampled_reference_trajectory", 1);
   m_pub_nearest_pose = node.create_publisher<PoseStamped>("~/debug/nearest_pose", 1);
   m_pub_nearest_segment_traj = node.create_publisher<Trajectory>("~/debug/nearest_segment", 1);
+  m_pub_nearest_info = node.create_publisher<Float32MultiArrayStamped>("~/debug/nearest_info", 1);
   m_pub_debug_values =
     node.create_publisher<Float32MultiArrayStamped>("~/output/lateral_diagnostic", 1);
   m_pub_steer_offset = node.create_publisher<Float32Stamped>("~/output/estimated_steer_offset", 1);
@@ -328,6 +329,7 @@ trajectory_follower::LateralOutput MpcLateralController::run(
     publishResampledReferenceTraj(mpc_solved_status.debug_msgs.resampled_reference_trajectory);
     publishNearestPose(mpc_solved_status.debug_msgs.nearest_pose);
     publishNearestSegmentTraj(mpc_solved_status.debug_msgs.nearest_segment_trajectory);
+    publishNearestInfo(mpc_solved_status.debug_msgs.nearest_info);
   }
   publishDebugValues(mpc_solved_status.diagnostic);
 
@@ -549,6 +551,12 @@ void MpcLateralController::publishNearestSegmentTraj(Trajectory & nearest_segmen
 {
   nearest_segment_traj.header.stamp = clock_->now();
   m_pub_nearest_segment_traj->publish(nearest_segment_traj);
+}
+
+void MpcLateralController::publishNearestInfo(Float32MultiArrayStamped & nearest_info) const
+{
+  nearest_info.stamp = clock_->now();
+  m_pub_nearest_info->publish(nearest_info);
 }
 
 void MpcLateralController::publishDebugValues(Float32MultiArrayStamped & debug_values) const
