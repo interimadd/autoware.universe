@@ -80,8 +80,6 @@ bool interpolateReferenceStateAtTime(
 
 MPC::MPC(rclcpp::Node & node)
 {
-  m_debug_frenet_predicted_trajectory_pub = node.create_publisher<Trajectory>(
-    "~/debug/predicted_trajectory_in_frenet_coordinate", rclcpp::QoS(1));
   m_debug_resampled_reference_trajectory_pub =
     node.create_publisher<Trajectory>("~/debug/resampled_reference_trajectory", rclcpp::QoS(1));
   m_debug_nearest_pose_pub =
@@ -181,14 +179,12 @@ MpcResult MPC::calculateMPC(
   const auto predicted_trajectory = calculatePredictedTrajectory(
     mpc_matrix, initial_state, Uex, mpc_resampled_ref_trajectory, prediction_dt, "world");
 
-  // Publish predicted trajectories in different coordinates for debugging purposes
+  // Calculate predicted trajectory in Frenet coordinate for debugging purposes
+  Trajectory predicted_trajectory_frenet{};
   if (m_publish_debug_trajectories) {
-    // Calculate and publish predicted trajectory in Frenet coordinate
-    auto predicted_trajectory_frenet = calculatePredictedTrajectory(
+    predicted_trajectory_frenet = calculatePredictedTrajectory(
       mpc_matrix, initial_state, Uex, mpc_resampled_ref_trajectory, prediction_dt, "frenet");
-    predicted_trajectory_frenet.header.stamp = m_clock->now();
     predicted_trajectory_frenet.header.frame_id = "map";
-    m_debug_frenet_predicted_trajectory_pub->publish(predicted_trajectory_frenet);
   }
 
   // prepare diagnostic message
@@ -208,7 +204,14 @@ MpcResult MPC::calculateMPC(
     ctrl_cmd_horizon.controls.push_back(lateral);
   }
 
-  return MpcResult{true, "", predicted_trajectory, ctrl_cmd, diagnostic, ctrl_cmd_horizon};
+  return MpcResult{
+    true,
+    "",
+    ctrl_cmd,
+    ctrl_cmd_horizon,
+    predicted_trajectory,
+    diagnostic,
+    MpcDebugTopicMessage{predicted_trajectory_frenet}};
 }
 
 Float32MultiArrayStamped MPC::generateDiagData(

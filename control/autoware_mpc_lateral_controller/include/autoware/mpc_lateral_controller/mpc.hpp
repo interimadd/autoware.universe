@@ -205,6 +205,11 @@ struct MPCMatrix
   MPCMatrix() = default;
 };
 
+struct MpcDebugTopicMessage
+{
+  Trajectory predicted_trajectory_frenet{};
+};
+
 struct MpcResult
 {
   bool result{false};
@@ -213,6 +218,7 @@ struct MpcResult
   LateralHorizon ctrl_cmd_horizon{};
   Trajectory predicted_trajectory{};
   Float32MultiArrayStamped diagnostic{};
+  MpcDebugTopicMessage debug_msgs{};
 };
 
 /**
@@ -246,7 +252,6 @@ private:
   bool m_is_forward_shift = true;  // Flag indicating if the shift is in the forward direction.
   std::optional<double> m_prev_nearest_time{};  // Stabilized nearest trajectory time.
 
-  rclcpp::Publisher<Trajectory>::SharedPtr m_debug_frenet_predicted_trajectory_pub;
   rclcpp::Publisher<Trajectory>::SharedPtr m_debug_resampled_reference_trajectory_pub;
   rclcpp::Publisher<PoseStamped>::SharedPtr m_debug_nearest_pose_pub;
   rclcpp::Publisher<Trajectory>::SharedPtr m_debug_nearest_segment_pub;

@@ -67,6 +67,7 @@ private:
   rclcpp::Logger logger_;
 
   rclcpp::Publisher<Trajectory>::SharedPtr m_pub_predicted_traj;
+  rclcpp::Publisher<Trajectory>::SharedPtr m_pub_predicted_traj_frenet;
   rclcpp::Publisher<Float32MultiArrayStamped>::SharedPtr m_pub_debug_values;
   rclcpp::Publisher<Float32Stamped>::SharedPtr m_pub_steer_offset;
 
@@ -227,6 +228,13 @@ private:
    * @param predicted_traj Predicted future trajectory to be published.
    */
   void publishPredictedTraj(Trajectory & predicted_traj) const;
+
+  /**
+   * @brief Publish the predicted future trajectory in the Frenet coordinate for debugging.
+   * @param predicted_traj_frenet Predicted future trajectory in the Frenet coordinate to be
+   * published.
+   */
+  void publishPredictedTrajFrenet(Trajectory & predicted_traj_frenet) const;
 
   /**
    * @brief Publish diagnostic message.

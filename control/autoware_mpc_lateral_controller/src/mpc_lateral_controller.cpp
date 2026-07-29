@@ -166,6 +166,8 @@ MpcLateralController::MpcLateralController(
   m_mpc->m_publish_debug_trajectories = dp_bool("publish_debug_trajectories");
 
   m_pub_predicted_traj = node.create_publisher<Trajectory>("~/output/predicted_trajectory", 1);
+  m_pub_predicted_traj_frenet =
+    node.create_publisher<Trajectory>("~/debug/predicted_trajectory_in_frenet_coordinate", 1);
   m_pub_debug_values =
     node.create_publisher<Float32MultiArrayStamped>("~/output/lateral_diagnostic", 1);
   m_pub_steer_offset = node.create_publisher<Float32Stamped>("~/output/estimated_steer_offset", 1);
@@ -317,6 +319,9 @@ trajectory_follower::LateralOutput MpcLateralController::run(
   ctrl_cmd.steering_tire_angle -= static_cast<float>(m_steering_offset_filtered_);
 
   publishPredictedTraj(mpc_solved_status.predicted_trajectory);
+  if (m_mpc->m_publish_debug_trajectories) {
+    publishPredictedTrajFrenet(mpc_solved_status.debug_msgs.predicted_trajectory_frenet);
+  }
   publishDebugValues(mpc_solved_status.diagnostic);
 
   const auto createLateralOutput =
@@ -512,6 +517,12 @@ void MpcLateralController::publishPredictedTraj(Trajectory & predicted_traj) con
   predicted_traj.header.stamp = clock_->now();
   predicted_traj.header.frame_id = m_current_trajectory.header.frame_id;
   m_pub_predicted_traj->publish(predicted_traj);
+}
+
+void MpcLateralController::publishPredictedTrajFrenet(Trajectory & predicted_traj_frenet) const
+{
+  predicted_traj_frenet.header.stamp = clock_->now();
+  m_pub_predicted_traj_frenet->publish(predicted_traj_frenet);
 }
 
 void MpcLateralController::publishDebugValues(Float32MultiArrayStamped & debug_values) const
