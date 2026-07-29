@@ -529,27 +529,15 @@ void MpcLateralController::publishDebugMessages(
     return;
   }
 
-  const auto now = clock_->now();
-
-  debug_msgs->predicted_trajectory_frenet.header.stamp = now;
   m_pub_predicted_traj_frenet->publish(debug_msgs->predicted_trajectory_frenet);
-
-  debug_msgs->resampled_reference_trajectory.header.stamp = now;
   m_pub_resampled_reference_traj->publish(debug_msgs->resampled_reference_trajectory);
-
-  debug_msgs->nearest_pose.header.stamp = now;
   m_pub_nearest_pose->publish(debug_msgs->nearest_pose);
-
-  debug_msgs->nearest_segment_trajectory.header.stamp = now;
   m_pub_nearest_segment_traj->publish(debug_msgs->nearest_segment_trajectory);
-
-  debug_msgs->nearest_info.stamp = now;
   m_pub_nearest_info->publish(debug_msgs->nearest_info);
 }
 
 void MpcLateralController::publishDebugValues(Float32MultiArrayStamped & debug_values) const
 {
-  debug_values.stamp = clock_->now();
   m_pub_debug_values->publish(debug_values);
 
   Float32Stamped offset;

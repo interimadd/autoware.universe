@@ -228,6 +228,9 @@ MpcResult MPC::calculateMPC(
   m_raw_steer_cmd_pprev = m_raw_steer_cmd_prev;
   m_raw_steer_cmd_prev = Uex(0);
 
+  // Use the odometry timestamp so all debug/diagnostic outputs of this MPC cycle
+  const auto & stamp = current_kinematics.header.stamp;
+
   /* calculate predicted trajectory */
   Eigen::VectorXd initial_state = m_use_delayed_initial_state ? x0_delayed : x0;
   const auto predicted_trajectory = calculatePredictedTrajectory(
@@ -239,11 +242,15 @@ MpcResult MPC::calculateMPC(
     predicted_trajectory_frenet = calculatePredictedTrajectory(
       mpc_matrix, initial_state, Uex, mpc_resampled_ref_trajectory, prediction_dt, "frenet");
     predicted_trajectory_frenet.header.frame_id = "map";
+    predicted_trajectory_frenet.header.stamp = stamp;
+    resampled_reference_trajectory.header.stamp = stamp;
+    nearest_pose.header.stamp = stamp;
   }
 
   // prepare diagnostic message
-  const auto diagnostic =
+  auto diagnostic =
     generateDiagData(reference_trajectory, mpc_data, mpc_matrix, ctrl_cmd, Uex, current_kinematics);
+  diagnostic.stamp = stamp;
 
   // create LateralHorizon command
   LateralHorizon ctrl_cmd_horizon{};
@@ -260,9 +267,13 @@ MpcResult MPC::calculateMPC(
 
   std::optional<MpcDebugTopicMessage> debug_msgs{};
   if (m_publish_debug_trajectories) {
+    auto nearest_segment_trajectory = mpc_data_raw.nearest_segment_trajectory;
+    nearest_segment_trajectory.header.stamp = stamp;
+    auto nearest_info = mpc_data_raw.nearest_info;
+    nearest_info.stamp = stamp;
     debug_msgs = MpcDebugTopicMessage{
       predicted_trajectory_frenet, resampled_reference_trajectory, nearest_pose,
-      mpc_data_raw.nearest_segment_trajectory, mpc_data_raw.nearest_info};
+      nearest_segment_trajectory, nearest_info};
   }
 
   return MpcResult{true,       "",        ctrl_cmd, ctrl_cmd_horizon, predicted_trajectory,
