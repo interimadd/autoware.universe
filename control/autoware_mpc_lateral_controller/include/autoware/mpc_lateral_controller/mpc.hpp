@@ -209,10 +209,10 @@ struct MpcResult
 {
   bool result{false};
   std::string reason{""};
-  Trajectory predicted_trajectory{};
   Lateral ctrl_cmd{};
-  Float32MultiArrayStamped diagnostic{};
   LateralHorizon ctrl_cmd_horizon{};
+  Trajectory predicted_trajectory{};
+  Float32MultiArrayStamped diagnostic{};
 };
 
 /**
