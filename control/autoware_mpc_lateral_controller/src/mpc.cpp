@@ -80,8 +80,6 @@ bool interpolateReferenceStateAtTime(
 
 MPC::MPC(rclcpp::Node & node)
 {
-  m_debug_nearest_pose_pub =
-    node.create_publisher<PoseStamped>("~/debug/nearest_pose", rclcpp::QoS(1));
   m_debug_nearest_segment_pub =
     node.create_publisher<Trajectory>("~/debug/nearest_segment", rclcpp::QoS(1));
   m_debug_nearest_info_pub =
@@ -102,6 +100,13 @@ MpcResult MPC::calculateMPC(
     return MpcResult{false, fmt::format("getting MPC Data ({}).", get_data_result.error())};
   }
   const auto & mpc_data_raw = get_data_result.value();
+
+  // Calculate nearest pose for debugging purposes
+  PoseStamped nearest_pose{};
+  if (m_publish_debug_trajectories) {
+    nearest_pose.header.frame_id = "map";
+    nearest_pose.pose = mpc_data_raw.nearest_pose;
+  }
 
   // For temporal mode, shift the internal MPC time origin to the ego-projected nearest point.
   // This keeps planner-provided time intervals while making t=0 correspond to "current ego".
@@ -217,7 +222,8 @@ MpcResult MPC::calculateMPC(
     ctrl_cmd_horizon,
     predicted_trajectory,
     diagnostic,
-    MpcDebugTopicMessage{predicted_trajectory_frenet, resampled_reference_trajectory}};
+    MpcDebugTopicMessage{
+      predicted_trajectory_frenet, resampled_reference_trajectory, nearest_pose}};
 }
 
 Float32MultiArrayStamped MPC::generateDiagData(
@@ -456,12 +462,6 @@ void MPC::publishNearestDebug(
   }
 
   const size_t nearest_idx = std::min(mpc_data.nearest_idx, traj.size() - 1);
-
-  PoseStamped nearest_pose_msg;
-  nearest_pose_msg.header.stamp = now;
-  nearest_pose_msg.header.frame_id = "map";
-  nearest_pose_msg.pose = mpc_data.nearest_pose;
-  m_debug_nearest_pose_pub->publish(nearest_pose_msg);
 
   size_t prev_idx = nearest_idx;
   size_t next_idx = nearest_idx;

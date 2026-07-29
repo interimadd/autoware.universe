@@ -209,6 +209,7 @@ struct MpcDebugTopicMessage
 {
   Trajectory predicted_trajectory_frenet{};
   Trajectory resampled_reference_trajectory{};
+  PoseStamped nearest_pose{};
 };
 
 struct MpcResult
@@ -253,7 +254,6 @@ private:
   bool m_is_forward_shift = true;  // Flag indicating if the shift is in the forward direction.
   std::optional<double> m_prev_nearest_time{};  // Stabilized nearest trajectory time.
 
-  rclcpp::Publisher<PoseStamped>::SharedPtr m_debug_nearest_pose_pub;
   rclcpp::Publisher<Trajectory>::SharedPtr m_debug_nearest_segment_pub;
   rclcpp::Publisher<Float32MultiArrayStamped>::SharedPtr m_debug_nearest_info_pub;
   /**

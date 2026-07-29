@@ -49,6 +49,7 @@ using autoware_internal_debug_msgs::msg::Float32MultiArrayStamped;
 using autoware_internal_debug_msgs::msg::Float32Stamped;
 using autoware_planning_msgs::msg::Trajectory;
 using autoware_vehicle_msgs::msg::SteeringReport;
+using geometry_msgs::msg::PoseStamped;
 using nav_msgs::msg::Odometry;
 using trajectory_follower::LateralHorizon;
 
@@ -69,6 +70,7 @@ private:
   rclcpp::Publisher<Trajectory>::SharedPtr m_pub_predicted_traj;
   rclcpp::Publisher<Trajectory>::SharedPtr m_pub_predicted_traj_frenet;
   rclcpp::Publisher<Trajectory>::SharedPtr m_pub_resampled_reference_traj;
+  rclcpp::Publisher<PoseStamped>::SharedPtr m_pub_nearest_pose;
   rclcpp::Publisher<Float32MultiArrayStamped>::SharedPtr m_pub_debug_values;
   rclcpp::Publisher<Float32Stamped>::SharedPtr m_pub_steer_offset;
 
@@ -242,6 +244,12 @@ private:
    * @param resampled_reference_traj Resampled reference trajectory to be published.
    */
   void publishResampledReferenceTraj(Trajectory & resampled_reference_traj) const;
+
+  /**
+   * @brief Publish the nearest pose on the reference trajectory for debugging.
+   * @param nearest_pose Nearest pose to be published.
+   */
+  void publishNearestPose(PoseStamped & nearest_pose) const;
 
   /**
    * @brief Publish diagnostic message.
