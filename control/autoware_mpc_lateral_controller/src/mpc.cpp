@@ -258,16 +258,15 @@ MpcResult MPC::calculateMPC(
     ctrl_cmd_horizon.controls.push_back(lateral);
   }
 
-  return MpcResult{
-    true,
-    "",
-    ctrl_cmd,
-    ctrl_cmd_horizon,
-    predicted_trajectory,
-    diagnostic,
-    MpcDebugTopicMessage{
+  std::optional<MpcDebugTopicMessage> debug_msgs{};
+  if (m_publish_debug_trajectories) {
+    debug_msgs = MpcDebugTopicMessage{
       predicted_trajectory_frenet, resampled_reference_trajectory, nearest_pose,
-      mpc_data_raw.nearest_segment_trajectory, mpc_data_raw.nearest_info}};
+      mpc_data_raw.nearest_segment_trajectory, mpc_data_raw.nearest_info};
+  }
+
+  return MpcResult{true,       "",        ctrl_cmd, ctrl_cmd_horizon, predicted_trajectory,
+                   diagnostic, debug_msgs};
 }
 
 Float32MultiArrayStamped MPC::generateDiagData(

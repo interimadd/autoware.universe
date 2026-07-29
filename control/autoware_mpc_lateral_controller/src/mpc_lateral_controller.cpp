@@ -324,12 +324,13 @@ trajectory_follower::LateralOutput MpcLateralController::run(
   ctrl_cmd.steering_tire_angle -= static_cast<float>(m_steering_offset_filtered_);
 
   publishPredictedTraj(mpc_solved_status.predicted_trajectory);
-  if (m_mpc->m_publish_debug_trajectories) {
-    publishPredictedTrajFrenet(mpc_solved_status.debug_msgs.predicted_trajectory_frenet);
-    publishResampledReferenceTraj(mpc_solved_status.debug_msgs.resampled_reference_trajectory);
-    publishNearestPose(mpc_solved_status.debug_msgs.nearest_pose);
-    publishNearestSegmentTraj(mpc_solved_status.debug_msgs.nearest_segment_trajectory);
-    publishNearestInfo(mpc_solved_status.debug_msgs.nearest_info);
+  if (mpc_solved_status.debug_msgs) {
+    auto & debug_msgs = mpc_solved_status.debug_msgs.value();
+    publishPredictedTrajFrenet(debug_msgs.predicted_trajectory_frenet);
+    publishResampledReferenceTraj(debug_msgs.resampled_reference_trajectory);
+    publishNearestPose(debug_msgs.nearest_pose);
+    publishNearestSegmentTraj(debug_msgs.nearest_segment_trajectory);
+    publishNearestInfo(debug_msgs.nearest_info);
   }
   publishDebugValues(mpc_solved_status.diagnostic);
 

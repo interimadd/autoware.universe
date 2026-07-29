@@ -232,7 +232,7 @@ struct MpcResult
   LateralHorizon ctrl_cmd_horizon{};
   Trajectory predicted_trajectory{};
   Float32MultiArrayStamped diagnostic{};
-  MpcDebugTopicMessage debug_msgs{};
+  std::optional<MpcDebugTopicMessage> debug_msgs{};
 };
 
 /**
