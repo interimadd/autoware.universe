@@ -324,14 +324,7 @@ trajectory_follower::LateralOutput MpcLateralController::run(
   ctrl_cmd.steering_tire_angle -= static_cast<float>(m_steering_offset_filtered_);
 
   publishPredictedTraj(mpc_solved_status.predicted_trajectory);
-  if (mpc_solved_status.debug_msgs) {
-    auto & debug_msgs = mpc_solved_status.debug_msgs.value();
-    publishPredictedTrajFrenet(debug_msgs.predicted_trajectory_frenet);
-    publishResampledReferenceTraj(debug_msgs.resampled_reference_trajectory);
-    publishNearestPose(debug_msgs.nearest_pose);
-    publishNearestSegmentTraj(debug_msgs.nearest_segment_trajectory);
-    publishNearestInfo(debug_msgs.nearest_info);
-  }
+  publishDebugMessages(mpc_solved_status.debug_msgs);
   publishDebugValues(mpc_solved_status.diagnostic);
 
   const auto createLateralOutput =
@@ -529,35 +522,29 @@ void MpcLateralController::publishPredictedTraj(Trajectory & predicted_traj) con
   m_pub_predicted_traj->publish(predicted_traj);
 }
 
-void MpcLateralController::publishPredictedTrajFrenet(Trajectory & predicted_traj_frenet) const
+void MpcLateralController::publishDebugMessages(
+  std::optional<MpcDebugTopicMessage> & debug_msgs) const
 {
-  predicted_traj_frenet.header.stamp = clock_->now();
-  m_pub_predicted_traj_frenet->publish(predicted_traj_frenet);
-}
+  if (!debug_msgs) {
+    return;
+  }
 
-void MpcLateralController::publishResampledReferenceTraj(
-  Trajectory & resampled_reference_traj) const
-{
-  resampled_reference_traj.header.stamp = clock_->now();
-  m_pub_resampled_reference_traj->publish(resampled_reference_traj);
-}
+  const auto now = clock_->now();
 
-void MpcLateralController::publishNearestPose(PoseStamped & nearest_pose) const
-{
-  nearest_pose.header.stamp = clock_->now();
-  m_pub_nearest_pose->publish(nearest_pose);
-}
+  debug_msgs->predicted_trajectory_frenet.header.stamp = now;
+  m_pub_predicted_traj_frenet->publish(debug_msgs->predicted_trajectory_frenet);
 
-void MpcLateralController::publishNearestSegmentTraj(Trajectory & nearest_segment_traj) const
-{
-  nearest_segment_traj.header.stamp = clock_->now();
-  m_pub_nearest_segment_traj->publish(nearest_segment_traj);
-}
+  debug_msgs->resampled_reference_trajectory.header.stamp = now;
+  m_pub_resampled_reference_traj->publish(debug_msgs->resampled_reference_trajectory);
 
-void MpcLateralController::publishNearestInfo(Float32MultiArrayStamped & nearest_info) const
-{
-  nearest_info.stamp = clock_->now();
-  m_pub_nearest_info->publish(nearest_info);
+  debug_msgs->nearest_pose.header.stamp = now;
+  m_pub_nearest_pose->publish(debug_msgs->nearest_pose);
+
+  debug_msgs->nearest_segment_trajectory.header.stamp = now;
+  m_pub_nearest_segment_traj->publish(debug_msgs->nearest_segment_trajectory);
+
+  debug_msgs->nearest_info.stamp = now;
+  m_pub_nearest_info->publish(debug_msgs->nearest_info);
 }
 
 void MpcLateralController::publishDebugValues(Float32MultiArrayStamped & debug_values) const

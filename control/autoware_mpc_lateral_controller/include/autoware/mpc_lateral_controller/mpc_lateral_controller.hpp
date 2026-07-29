@@ -235,35 +235,11 @@ private:
   void publishPredictedTraj(Trajectory & predicted_traj) const;
 
   /**
-   * @brief Publish the predicted future trajectory in the Frenet coordinate for debugging.
-   * @param predicted_traj_frenet Predicted future trajectory in the Frenet coordinate to be
-   * published.
+   * @brief Publish the MPC debug topic messages (predicted trajectory in Frenet coordinate,
+   * resampled reference trajectory, nearest pose, nearest segment trajectory, nearest info).
+   * @param debug_msgs MPC debug topic messages to be published.
    */
-  void publishPredictedTrajFrenet(Trajectory & predicted_traj_frenet) const;
-
-  /**
-   * @brief Publish the resampled reference trajectory for debugging.
-   * @param resampled_reference_traj Resampled reference trajectory to be published.
-   */
-  void publishResampledReferenceTraj(Trajectory & resampled_reference_traj) const;
-
-  /**
-   * @brief Publish the nearest pose on the reference trajectory for debugging.
-   * @param nearest_pose Nearest pose to be published.
-   */
-  void publishNearestPose(PoseStamped & nearest_pose) const;
-
-  /**
-   * @brief Publish the ego-nearest trajectory segment for debugging.
-   * @param nearest_segment_traj Ego-nearest trajectory segment to be published.
-   */
-  void publishNearestSegmentTraj(Trajectory & nearest_segment_traj) const;
-
-  /**
-   * @brief Publish the ego-nearest tracking info for debugging.
-   * @param nearest_info Ego-nearest tracking info to be published.
-   */
-  void publishNearestInfo(Float32MultiArrayStamped & nearest_info) const;
+  void publishDebugMessages(std::optional<MpcDebugTopicMessage> & debug_msgs) const;
 
   /**
    * @brief Publish diagnostic message.
