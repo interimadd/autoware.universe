@@ -76,12 +76,60 @@ bool interpolateReferenceStateAtTime(
   }
   return true;
 }
+
+struct NearestSegmentIndices
+{
+  size_t prev_idx{};
+  size_t next_idx{};
+};
+
+NearestSegmentIndices calcNearestSegmentIndices(
+  const Trajectory & autoware_trajectory, const Pose & self_pose, const size_t nearest_index)
+{
+  NearestSegmentIndices indices{nearest_index, nearest_index};
+  if (autoware_trajectory.points.size() < 2) {
+    return indices;
+  }
+
+  if (nearest_index == 0) {
+    indices.prev_idx = 0;
+    indices.next_idx = 1;
+  } else if (nearest_index == autoware_trajectory.points.size() - 1) {
+    indices.prev_idx = autoware_trajectory.points.size() - 2;
+    indices.next_idx = autoware_trajectory.points.size() - 1;
+  } else {
+    const double signed_length = autoware::motion_utils::calcLongitudinalOffsetToSegment(
+      autoware_trajectory.points, nearest_index, self_pose.position);
+    if (signed_length <= 0.0) {
+      indices.prev_idx = nearest_index - 1;
+      indices.next_idx = nearest_index;
+    } else {
+      indices.prev_idx = nearest_index;
+      indices.next_idx = nearest_index + 1;
+    }
+  }
+  return indices;
+}
+
+Trajectory buildNearestSegmentTrajectory(
+  const Trajectory & autoware_trajectory, const size_t nearest_index,
+  const NearestSegmentIndices & indices)
+{
+  Trajectory nearest_segment_trajectory;
+  nearest_segment_trajectory.header.frame_id = "map";
+  nearest_segment_trajectory.points.push_back(autoware_trajectory.points.at(indices.prev_idx));
+  if (nearest_index != indices.prev_idx && nearest_index != indices.next_idx) {
+    nearest_segment_trajectory.points.push_back(autoware_trajectory.points.at(nearest_index));
+  }
+  if (indices.next_idx != indices.prev_idx) {
+    nearest_segment_trajectory.points.push_back(autoware_trajectory.points.at(indices.next_idx));
+  }
+  return nearest_segment_trajectory;
+}
 }  // namespace
 
 MPC::MPC(rclcpp::Node & node)
 {
-  m_debug_nearest_segment_pub =
-    node.create_publisher<Trajectory>("~/debug/nearest_segment", rclcpp::QoS(1));
   m_debug_nearest_info_pub =
     node.create_publisher<Float32MultiArrayStamped>("~/debug/nearest_info", rclcpp::QoS(1));
 }
@@ -223,7 +271,8 @@ MpcResult MPC::calculateMPC(
     predicted_trajectory,
     diagnostic,
     MpcDebugTopicMessage{
-      predicted_trajectory_frenet, resampled_reference_trajectory, nearest_pose}};
+      predicted_trajectory_frenet, resampled_reference_trajectory, nearest_pose,
+      mpc_data_raw.nearest_segment_trajectory}};
 }
 
 Float32MultiArrayStamped MPC::generateDiagData(
@@ -430,7 +479,17 @@ tl::expected<MPCData, std::string> MPC::getData(
   data.predicted_steer = m_steering_predictor->calcSteerPrediction();
 
   if (m_publish_debug_trajectories) {
-    publishNearestDebug(traj, current_pose, data);
+    const auto autoware_traj = MPCUtils::convertToAutowareTrajectory(traj);
+    if (!traj.empty() && !autoware_traj.points.empty()) {
+      const size_t nearest_idx = std::min(data.nearest_idx, traj.size() - 1);
+      const auto nearest_segment_indices =
+        calcNearestSegmentIndices(autoware_traj, current_pose, nearest_idx);
+      data.nearest_segment_prev_idx = nearest_segment_indices.prev_idx;
+      data.nearest_segment_next_idx = nearest_segment_indices.next_idx;
+      data.nearest_segment_trajectory =
+        buildNearestSegmentTrajectory(autoware_traj, nearest_idx, nearest_segment_indices);
+      publishNearestDebug(traj, current_pose, data);
+    }
   }
 
   // check trajectory time length
@@ -456,46 +515,9 @@ void MPC::publishNearestDebug(
   }
 
   const auto now = m_clock->now();
-  const auto autoware_traj = MPCUtils::convertToAutowareTrajectory(traj);
-  if (autoware_traj.points.empty()) {
-    return;
-  }
-
   const size_t nearest_idx = std::min(mpc_data.nearest_idx, traj.size() - 1);
-
-  size_t prev_idx = nearest_idx;
-  size_t next_idx = nearest_idx;
-  if (traj.size() >= 2) {
-    if (nearest_idx == 0) {
-      prev_idx = 0;
-      next_idx = 1;
-    } else if (nearest_idx == traj.size() - 1) {
-      prev_idx = traj.size() - 2;
-      next_idx = traj.size() - 1;
-    } else {
-      const double signed_length = autoware::motion_utils::calcLongitudinalOffsetToSegment(
-        autoware_traj.points, nearest_idx, self_pose.position);
-      if (signed_length <= 0.0) {
-        prev_idx = nearest_idx - 1;
-        next_idx = nearest_idx;
-      } else {
-        prev_idx = nearest_idx;
-        next_idx = nearest_idx + 1;
-      }
-    }
-  }
-
-  Trajectory nearest_segment_msg;
-  nearest_segment_msg.header.stamp = now;
-  nearest_segment_msg.header.frame_id = "map";
-  nearest_segment_msg.points.push_back(autoware_traj.points.at(prev_idx));
-  if (nearest_idx != prev_idx && nearest_idx != next_idx) {
-    nearest_segment_msg.points.push_back(autoware_traj.points.at(nearest_idx));
-  }
-  if (next_idx != prev_idx) {
-    nearest_segment_msg.points.push_back(autoware_traj.points.at(next_idx));
-  }
-  m_debug_nearest_segment_pub->publish(nearest_segment_msg);
+  const size_t prev_idx = mpc_data.nearest_segment_prev_idx;
+  const size_t next_idx = mpc_data.nearest_segment_next_idx;
 
   const double prev_t = traj.relative_time.at(prev_idx);
   const double next_t = traj.relative_time.at(next_idx);

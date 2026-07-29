@@ -71,6 +71,7 @@ private:
   rclcpp::Publisher<Trajectory>::SharedPtr m_pub_predicted_traj_frenet;
   rclcpp::Publisher<Trajectory>::SharedPtr m_pub_resampled_reference_traj;
   rclcpp::Publisher<PoseStamped>::SharedPtr m_pub_nearest_pose;
+  rclcpp::Publisher<Trajectory>::SharedPtr m_pub_nearest_segment_traj;
   rclcpp::Publisher<Float32MultiArrayStamped>::SharedPtr m_pub_debug_values;
   rclcpp::Publisher<Float32Stamped>::SharedPtr m_pub_steer_offset;
 
@@ -250,6 +251,12 @@ private:
    * @param nearest_pose Nearest pose to be published.
    */
   void publishNearestPose(PoseStamped & nearest_pose) const;
+
+  /**
+   * @brief Publish the ego-nearest trajectory segment for debugging.
+   * @param nearest_segment_traj Ego-nearest trajectory segment to be published.
+   */
+  void publishNearestSegmentTraj(Trajectory & nearest_segment_traj) const;
 
   /**
    * @brief Publish diagnostic message.

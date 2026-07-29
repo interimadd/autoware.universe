@@ -162,6 +162,13 @@ struct MPCData
   // Pose (position and orientation) of the nearest point in the trajectory.
   Pose nearest_pose{};
 
+  // Indices bounding the ego-nearest trajectory segment, used for debugging.
+  size_t nearest_segment_prev_idx{};
+  size_t nearest_segment_next_idx{};
+
+  // Ego-nearest trajectory segment, used for debugging.
+  Trajectory nearest_segment_trajectory{};
+
   // Temporal tracking debug values.
   double temporal_predicted_time{std::numeric_limits<double>::quiet_NaN()};
   double temporal_observed_time{std::numeric_limits<double>::quiet_NaN()};
@@ -210,6 +217,7 @@ struct MpcDebugTopicMessage
   Trajectory predicted_trajectory_frenet{};
   Trajectory resampled_reference_trajectory{};
   PoseStamped nearest_pose{};
+  Trajectory nearest_segment_trajectory{};
 };
 
 struct MpcResult
@@ -254,7 +262,6 @@ private:
   bool m_is_forward_shift = true;  // Flag indicating if the shift is in the forward direction.
   std::optional<double> m_prev_nearest_time{};  // Stabilized nearest trajectory time.
 
-  rclcpp::Publisher<Trajectory>::SharedPtr m_debug_nearest_segment_pub;
   rclcpp::Publisher<Float32MultiArrayStamped>::SharedPtr m_debug_nearest_info_pub;
   /**
    * @brief Get variables for MPC calculation.
