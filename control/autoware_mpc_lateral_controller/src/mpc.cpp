@@ -80,8 +80,6 @@ bool interpolateReferenceStateAtTime(
 
 MPC::MPC(rclcpp::Node & node)
 {
-  m_debug_resampled_reference_trajectory_pub =
-    node.create_publisher<Trajectory>("~/debug/resampled_reference_trajectory", rclcpp::QoS(1));
   m_debug_nearest_pose_pub =
     node.create_publisher<PoseStamped>("~/debug/nearest_pose", rclcpp::QoS(1));
   m_debug_nearest_segment_pub =
@@ -140,6 +138,14 @@ MpcResult MPC::calculateMPC(
     return MpcResult{false, fmt::format("trajectory resampling ({}).", resample_result.error())};
   }
   const auto & mpc_resampled_ref_trajectory = resample_result.value();
+
+  // Calculate resampled reference trajectory for debugging purposes
+  Trajectory resampled_reference_trajectory{};
+  if (m_publish_debug_trajectories) {
+    resampled_reference_trajectory =
+      MPCUtils::convertToAutowareTrajectory(mpc_resampled_ref_trajectory);
+    resampled_reference_trajectory.header.frame_id = "map";
+  }
 
   // generate mpc matrix : predict equation Xec = Aex * x0 + Bex * Uex + Wex
   const auto mpc_matrix = generateMPCMatrix(mpc_resampled_ref_trajectory, prediction_dt);
@@ -211,7 +217,7 @@ MpcResult MPC::calculateMPC(
     ctrl_cmd_horizon,
     predicted_trajectory,
     diagnostic,
-    MpcDebugTopicMessage{predicted_trajectory_frenet}};
+    MpcDebugTopicMessage{predicted_trajectory_frenet, resampled_reference_trajectory}};
 }
 
 Float32MultiArrayStamped MPC::generateDiagData(
@@ -542,13 +548,6 @@ tl::expected<MPCTrajectory, std::string> MPC::resampleMPCTrajectoryByTime(
   }
   if (!MPCUtils::linearInterpMPCTrajectory(input.relative_time, input, mpc_time_v, output)) {
     return tl::make_unexpected("mpc resample error");
-  }
-  // Publish resampled reference trajectory for debug purpose.
-  if (m_publish_debug_trajectories) {
-    auto converted_output = MPCUtils::convertToAutowareTrajectory(output);
-    converted_output.header.stamp = m_clock->now();
-    converted_output.header.frame_id = "map";
-    m_debug_resampled_reference_trajectory_pub->publish(converted_output);
   }
   return output;
 }

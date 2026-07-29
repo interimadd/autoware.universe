@@ -68,6 +68,7 @@ private:
 
   rclcpp::Publisher<Trajectory>::SharedPtr m_pub_predicted_traj;
   rclcpp::Publisher<Trajectory>::SharedPtr m_pub_predicted_traj_frenet;
+  rclcpp::Publisher<Trajectory>::SharedPtr m_pub_resampled_reference_traj;
   rclcpp::Publisher<Float32MultiArrayStamped>::SharedPtr m_pub_debug_values;
   rclcpp::Publisher<Float32Stamped>::SharedPtr m_pub_steer_offset;
 
@@ -235,6 +236,12 @@ private:
    * published.
    */
   void publishPredictedTrajFrenet(Trajectory & predicted_traj_frenet) const;
+
+  /**
+   * @brief Publish the resampled reference trajectory for debugging.
+   * @param resampled_reference_traj Resampled reference trajectory to be published.
+   */
+  void publishResampledReferenceTraj(Trajectory & resampled_reference_traj) const;
 
   /**
    * @brief Publish diagnostic message.

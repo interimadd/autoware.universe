@@ -168,6 +168,8 @@ MpcLateralController::MpcLateralController(
   m_pub_predicted_traj = node.create_publisher<Trajectory>("~/output/predicted_trajectory", 1);
   m_pub_predicted_traj_frenet =
     node.create_publisher<Trajectory>("~/debug/predicted_trajectory_in_frenet_coordinate", 1);
+  m_pub_resampled_reference_traj =
+    node.create_publisher<Trajectory>("~/debug/resampled_reference_trajectory", 1);
   m_pub_debug_values =
     node.create_publisher<Float32MultiArrayStamped>("~/output/lateral_diagnostic", 1);
   m_pub_steer_offset = node.create_publisher<Float32Stamped>("~/output/estimated_steer_offset", 1);
@@ -321,6 +323,7 @@ trajectory_follower::LateralOutput MpcLateralController::run(
   publishPredictedTraj(mpc_solved_status.predicted_trajectory);
   if (m_mpc->m_publish_debug_trajectories) {
     publishPredictedTrajFrenet(mpc_solved_status.debug_msgs.predicted_trajectory_frenet);
+    publishResampledReferenceTraj(mpc_solved_status.debug_msgs.resampled_reference_trajectory);
   }
   publishDebugValues(mpc_solved_status.diagnostic);
 
@@ -523,6 +526,13 @@ void MpcLateralController::publishPredictedTrajFrenet(Trajectory & predicted_tra
 {
   predicted_traj_frenet.header.stamp = clock_->now();
   m_pub_predicted_traj_frenet->publish(predicted_traj_frenet);
+}
+
+void MpcLateralController::publishResampledReferenceTraj(
+  Trajectory & resampled_reference_traj) const
+{
+  resampled_reference_traj.header.stamp = clock_->now();
+  m_pub_resampled_reference_traj->publish(resampled_reference_traj);
 }
 
 void MpcLateralController::publishDebugValues(Float32MultiArrayStamped & debug_values) const
