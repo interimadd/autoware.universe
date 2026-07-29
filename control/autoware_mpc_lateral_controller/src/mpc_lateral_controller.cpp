@@ -284,8 +284,6 @@ trajectory_follower::LateralOutput MpcLateralController::run(
                                   : 0.0;
   m_current_steering.steering_tire_angle += static_cast<float>(m_steering_offset_filtered_);
 
-  Float32MultiArrayStamped debug_values;
-
   const bool is_under_control = input_data.current_operation_mode.is_autoware_control_enabled &&
                                 input_data.current_operation_mode.mode ==
                                   autoware_adapi_v1_msgs::msg::OperationModeState::AUTONOMOUS;
@@ -296,8 +294,8 @@ trajectory_follower::LateralOutput MpcLateralController::run(
   }
 
   trajectory_follower::LateralHorizon ctrl_cmd_horizon{};
-  auto mpc_solved_status = m_mpc->calculateMPC(
-    m_current_steering, m_current_kinematic_state, debug_values, ctrl_cmd_horizon);
+  auto mpc_solved_status =
+    m_mpc->calculateMPC(m_current_steering, m_current_kinematic_state, ctrl_cmd_horizon);
   Lateral ctrl_cmd = mpc_solved_status.ctrl_cmd;
 
   if (
@@ -321,7 +319,7 @@ trajectory_follower::LateralOutput MpcLateralController::run(
   ctrl_cmd.steering_tire_angle -= static_cast<float>(m_steering_offset_filtered_);
 
   publishPredictedTraj(mpc_solved_status.predicted_trajectory);
-  publishDebugValues(debug_values);
+  publishDebugValues(mpc_solved_status.diagnostic);
 
   const auto createLateralOutput =
     [this](
