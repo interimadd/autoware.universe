@@ -212,6 +212,7 @@ struct MpcResult
   Trajectory predicted_trajectory{};
   Lateral ctrl_cmd{};
   Float32MultiArrayStamped diagnostic{};
+  LateralHorizon ctrl_cmd_horizon{};
 };
 
 /**
@@ -481,11 +482,10 @@ public:
    * @param current_steer Current steering report.
    * @param current_kinematics Current vehicle kinematics.
    * @return The MPC result, including success/failure status, the computed control command, the
-   * predicted trajectory, and the diagnostic data for debugging purposes.
+   * predicted trajectory, the control command horizon, and the diagnostic data for debugging
+   * purposes.
    */
-  MpcResult calculateMPC(
-    const SteeringReport & current_steer, const Odometry & current_kinematics,
-    LateralHorizon & ctrl_cmd_horizon);
+  MpcResult calculateMPC(const SteeringReport & current_steer, const Odometry & current_kinematics);
 
   /**
    * @brief Set the reference trajectory to be followed.

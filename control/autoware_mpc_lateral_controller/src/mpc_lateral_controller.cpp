@@ -293,9 +293,7 @@ trajectory_follower::LateralOutput MpcLateralController::run(
     m_is_ctrl_cmd_prev_initialized = true;
   }
 
-  trajectory_follower::LateralHorizon ctrl_cmd_horizon{};
-  auto mpc_solved_status =
-    m_mpc->calculateMPC(m_current_steering, m_current_kinematic_state, ctrl_cmd_horizon);
+  auto mpc_solved_status = m_mpc->calculateMPC(m_current_steering, m_current_kinematic_state);
   Lateral ctrl_cmd = mpc_solved_status.ctrl_cmd;
 
   if (
@@ -347,7 +345,7 @@ trajectory_follower::LateralOutput MpcLateralController::run(
     }
     // Use previous command value as previous raw steer command
     m_mpc->m_raw_steer_cmd_prev = m_ctrl_cmd_prev.steering_tire_angle;
-    return createLateralOutput(m_ctrl_cmd_prev, false, ctrl_cmd_horizon);
+    return createLateralOutput(m_ctrl_cmd_prev, false, mpc_solved_status.ctrl_cmd_horizon);
   }
 
   if (!mpc_solved_status.result) {
@@ -356,7 +354,8 @@ trajectory_follower::LateralOutput MpcLateralController::run(
   }
 
   m_ctrl_cmd_prev = ctrl_cmd;
-  return createLateralOutput(ctrl_cmd, mpc_solved_status.result, ctrl_cmd_horizon);
+  return createLateralOutput(
+    ctrl_cmd, mpc_solved_status.result, mpc_solved_status.ctrl_cmd_horizon);
 }
 
 bool MpcLateralController::isSteerConverged(const Lateral & cmd) const

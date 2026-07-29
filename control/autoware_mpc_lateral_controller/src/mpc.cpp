@@ -93,8 +93,7 @@ MPC::MPC(rclcpp::Node & node)
 }
 
 MpcResult MPC::calculateMPC(
-  const SteeringReport & current_steer, const Odometry & current_kinematics,
-  LateralHorizon & ctrl_cmd_horizon)
+  const SteeringReport & current_steer, const Odometry & current_kinematics)
 {
   // since the reference trajectory does not take into account the current velocity of the ego
   // vehicle, it needs to calculate the trajectory velocity considering the longitudinal dynamics.
@@ -197,8 +196,8 @@ MpcResult MPC::calculateMPC(
     generateDiagData(reference_trajectory, mpc_data, mpc_matrix, ctrl_cmd, Uex, current_kinematics);
 
   // create LateralHorizon command
+  LateralHorizon ctrl_cmd_horizon{};
   ctrl_cmd_horizon.time_step_ms = prediction_dt * 1000.0;
-  ctrl_cmd_horizon.controls.clear();
   ctrl_cmd_horizon.controls.push_back(ctrl_cmd);
   for (auto it = std::next(Uex.begin()); it != Uex.end(); ++it) {
     Lateral lateral{};
@@ -209,7 +208,7 @@ MpcResult MPC::calculateMPC(
     ctrl_cmd_horizon.controls.push_back(lateral);
   }
 
-  return MpcResult{true, "", predicted_trajectory, ctrl_cmd, diagnostic};
+  return MpcResult{true, "", predicted_trajectory, ctrl_cmd, diagnostic, ctrl_cmd_horizon};
 }
 
 Float32MultiArrayStamped MPC::generateDiagData(
