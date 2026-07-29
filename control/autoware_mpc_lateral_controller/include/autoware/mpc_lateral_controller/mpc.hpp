@@ -494,9 +494,6 @@ public:
   bool m_publish_debug_trajectories = false;  // Flag to publish predicted trajectory and
                                               // resampled reference trajectory for debug purpose
 
-  //!< Constructor.
-  explicit MPC(rclcpp::Node & node);
-
   /**
    * @brief Calculate control command using the MPC algorithm.
    * @param current_steer Current steering report.

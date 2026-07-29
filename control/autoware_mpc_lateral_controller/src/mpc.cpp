@@ -129,10 +129,6 @@ Trajectory buildNearestSegmentTrajectory(
 
 }  // namespace
 
-MPC::MPC(rclcpp::Node & /*node*/)
-{
-}
-
 MpcResult MPC::calculateMPC(
   const SteeringReport & current_steer, const Odometry & current_kinematics)
 {

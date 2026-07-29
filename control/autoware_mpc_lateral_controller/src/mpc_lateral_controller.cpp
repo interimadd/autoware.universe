@@ -48,7 +48,7 @@ MpcLateralController::MpcLateralController(
 
   diag_updater_ = diag_updater;
 
-  m_mpc = std::make_unique<MPC>(node);
+  m_mpc = std::make_unique<MPC>();
 
   const auto ctrl_period = node.get_parameter("ctrl_period").as_double();
   m_mpc->m_ctrl_period = ctrl_period;
