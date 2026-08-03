@@ -127,6 +127,23 @@ Trajectory buildNearestSegmentTrajectory(
   return nearest_segment_trajectory;
 }
 
+void setTimestamp(MpcResult & result, const builtin_interfaces::msg::Time & stamp)
+{
+  result.ctrl_cmd.stamp = stamp;
+  for (auto & control : result.ctrl_cmd_horizon.controls) {
+    control.stamp = stamp;
+  }
+  result.diagnostic.stamp = stamp;
+  result.predicted_trajectory.header.stamp = stamp;
+  if (result.debug_msgs) {
+    result.debug_msgs->predicted_trajectory_frenet.header.stamp = stamp;
+    result.debug_msgs->resampled_reference_trajectory.header.stamp = stamp;
+    result.debug_msgs->nearest_pose.header.stamp = stamp;
+    result.debug_msgs->nearest_segment_trajectory.header.stamp = stamp;
+    result.debug_msgs->nearest_info.stamp = stamp;
+  }
+}
+
 }  // namespace
 
 MpcResult MPC::calculateMPC(
@@ -231,9 +248,8 @@ MpcResult MPC::calculateMPC(
 
   /* calculate predicted trajectory */
   Eigen::VectorXd initial_state = m_use_delayed_initial_state ? x0_delayed : x0;
-  auto predicted_trajectory = calculatePredictedTrajectory(
+  const auto predicted_trajectory = calculatePredictedTrajectory(
     mpc_matrix, initial_state, Uex, mpc_resampled_ref_trajectory, prediction_dt, "world");
-  predicted_trajectory.header.stamp = stamp;
 
   // Calculate predicted trajectory in Frenet coordinate for debugging purposes
   Trajectory predicted_trajectory_frenet{};
@@ -241,15 +257,11 @@ MpcResult MPC::calculateMPC(
     predicted_trajectory_frenet = calculatePredictedTrajectory(
       mpc_matrix, initial_state, Uex, mpc_resampled_ref_trajectory, prediction_dt, "frenet");
     predicted_trajectory_frenet.header.frame_id = "map";
-    predicted_trajectory_frenet.header.stamp = stamp;
-    resampled_reference_trajectory.header.stamp = stamp;
-    nearest_pose.header.stamp = stamp;
   }
 
   // prepare diagnostic message
-  auto diagnostic =
+  const auto diagnostic =
     generateDiagData(reference_trajectory, mpc_data, mpc_matrix, ctrl_cmd, Uex, current_kinematics);
-  diagnostic.stamp = stamp;
 
   // create LateralHorizon command
   LateralHorizon ctrl_cmd_horizon{};
@@ -266,17 +278,15 @@ MpcResult MPC::calculateMPC(
 
   std::optional<MpcDebugTopicMessage> debug_msgs{};
   if (m_publish_debug_trajectories) {
-    auto nearest_segment_trajectory = mpc_data_raw.nearest_segment_trajectory;
-    nearest_segment_trajectory.header.stamp = stamp;
-    auto nearest_info = mpc_data_raw.nearest_info;
-    nearest_info.stamp = stamp;
     debug_msgs = MpcDebugTopicMessage{
       predicted_trajectory_frenet, resampled_reference_trajectory, nearest_pose,
-      nearest_segment_trajectory, nearest_info};
+      mpc_data_raw.nearest_segment_trajectory, mpc_data_raw.nearest_info};
   }
 
-  return MpcResult{true,       "",        ctrl_cmd, ctrl_cmd_horizon, predicted_trajectory,
+  MpcResult result{true,       "",        ctrl_cmd, ctrl_cmd_horizon, predicted_trajectory,
                    diagnostic, debug_msgs};
+  setTimestamp(result, stamp);
+  return result;
 }
 
 Float32MultiArrayStamped MPC::generateDiagData(
