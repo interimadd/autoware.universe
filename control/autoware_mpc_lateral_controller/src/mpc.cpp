@@ -116,7 +116,6 @@ Trajectory buildNearestSegmentTrajectory(
   const NearestSegmentIndices & indices)
 {
   Trajectory nearest_segment_trajectory;
-  nearest_segment_trajectory.header.frame_id = "map";
   nearest_segment_trajectory.points.push_back(autoware_trajectory.points.at(indices.prev_idx));
   if (nearest_index != indices.prev_idx && nearest_index != indices.next_idx) {
     nearest_segment_trajectory.points.push_back(autoware_trajectory.points.at(nearest_index));
@@ -139,9 +138,13 @@ void setHeader(
   result.predicted_trajectory.header.frame_id = frame_id;
   if (result.debug_msgs) {
     result.debug_msgs->predicted_trajectory_frenet.header.stamp = stamp;
+    result.debug_msgs->predicted_trajectory_frenet.header.frame_id = frame_id;
     result.debug_msgs->resampled_reference_trajectory.header.stamp = stamp;
+    result.debug_msgs->resampled_reference_trajectory.header.frame_id = frame_id;
     result.debug_msgs->nearest_pose.header.stamp = stamp;
+    result.debug_msgs->nearest_pose.header.frame_id = frame_id;
     result.debug_msgs->nearest_segment_trajectory.header.stamp = stamp;
+    result.debug_msgs->nearest_segment_trajectory.header.frame_id = frame_id;
     result.debug_msgs->nearest_info.stamp = stamp;
   }
 }
@@ -169,7 +172,6 @@ MpcResult MPC::calculateMPC(
   // Calculate nearest pose for debugging purposes
   PoseStamped nearest_pose{};
   if (m_publish_debug_trajectories) {
-    nearest_pose.header.frame_id = "map";
     nearest_pose.pose = mpc_data_raw.nearest_pose;
   }
 
@@ -219,7 +221,6 @@ MpcResult MPC::calculateMPC(
   if (m_publish_debug_trajectories) {
     resampled_reference_trajectory =
       MPCUtils::convertToAutowareTrajectory(mpc_resampled_ref_trajectory);
-    resampled_reference_trajectory.header.frame_id = "map";
   }
 
   // generate mpc matrix : predict equation Xec = Aex * x0 + Bex * Uex + Wex
@@ -267,7 +268,6 @@ MpcResult MPC::calculateMPC(
   if (m_publish_debug_trajectories) {
     predicted_trajectory_frenet = calculatePredictedTrajectory(
       mpc_matrix, initial_state, Uex, mpc_resampled_ref_trajectory, prediction_dt, "frenet");
-    predicted_trajectory_frenet.header.frame_id = "map";
   }
 
   // prepare diagnostic message
