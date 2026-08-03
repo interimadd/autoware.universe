@@ -158,7 +158,9 @@ MpcResult MPC::calculateMPC(
   // get the necessary data
   const auto get_data_result = getData(reference_trajectory, current_steer, current_kinematics);
   if (!get_data_result) {
-    return MpcResult{false, fmt::format("getting MPC Data ({}).", get_data_result.error())};
+    MpcResult failure_result{false, fmt::format("getting MPC Data ({}).", get_data_result.error())};
+    setTimestamp(failure_result, stamp);
+    return failure_result;
   }
   const auto & mpc_data_raw = get_data_result.value();
 
@@ -188,8 +190,10 @@ MpcResult MPC::calculateMPC(
   const auto delay_compensation_result =
     updateStateForDelayCompensation(mpc_reference_trajectory, mpc_data.nearest_time, x0);
   if (!delay_compensation_result) {
-    return MpcResult{
+    MpcResult failure_result{
       false, fmt::format("delay compensation ({}).", delay_compensation_result.error())};
+    setTimestamp(failure_result, stamp);
+    return failure_result;
   }
   const auto & x0_delayed = delay_compensation_result.value();
 
@@ -201,7 +205,10 @@ MpcResult MPC::calculateMPC(
   const auto resample_result =
     resampleMPCTrajectoryByTime(mpc_start_time, prediction_dt, mpc_reference_trajectory);
   if (!resample_result) {
-    return MpcResult{false, fmt::format("trajectory resampling ({}).", resample_result.error())};
+    MpcResult failure_result{
+      false, fmt::format("trajectory resampling ({}).", resample_result.error())};
+    setTimestamp(failure_result, stamp);
+    return failure_result;
   }
   const auto & mpc_resampled_ref_trajectory = resample_result.value();
 
@@ -221,7 +228,9 @@ MpcResult MPC::calculateMPC(
     mpc_matrix, x0_delayed, prediction_dt, mpc_resampled_ref_trajectory,
     current_kinematics.twist.twist.linear.x);
   if (!opt_result) {
-    return MpcResult{false, fmt::format("optimization failure ({}).", opt_result.error())};
+    MpcResult failure_result{false, fmt::format("optimization failure ({}).", opt_result.error())};
+    setTimestamp(failure_result, stamp);
+    return failure_result;
   }
   const auto & Uex = opt_result.value();
 
