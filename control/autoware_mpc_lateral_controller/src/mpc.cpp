@@ -171,8 +171,14 @@ MpcResult MPC::calculateMPC(
 
   // Calculate nearest pose for debugging purposes
   PoseStamped nearest_pose{};
+  std::optional<MpcDebugTopicMessage> debug_msgs{};
   if (m_publish_debug_trajectories) {
     nearest_pose.pose = mpc_data_raw.nearest_pose;
+    // Populate the parts that are already known so that debug topics keep being published with
+    // consistent timestamps even if the MPC fails before the remaining fields are computed below.
+    debug_msgs = MpcDebugTopicMessage{
+      Trajectory{}, Trajectory{}, nearest_pose, mpc_data_raw.nearest_segment_trajectory,
+      mpc_data_raw.nearest_info};
   }
 
   // For temporal mode, shift the internal MPC time origin to the ego-projected nearest point.
@@ -196,6 +202,7 @@ MpcResult MPC::calculateMPC(
   if (!delay_compensation_result) {
     MpcResult failure_result{
       false, fmt::format("delay compensation ({}).", delay_compensation_result.error())};
+    failure_result.debug_msgs = debug_msgs;
     setHeader(failure_result, stamp, m_reference_trajectory_frame_id);
     return failure_result;
   }
@@ -211,6 +218,7 @@ MpcResult MPC::calculateMPC(
   if (!resample_result) {
     MpcResult failure_result{
       false, fmt::format("trajectory resampling ({}).", resample_result.error())};
+    failure_result.debug_msgs = debug_msgs;
     setHeader(failure_result, stamp, m_reference_trajectory_frame_id);
     return failure_result;
   }
@@ -221,6 +229,7 @@ MpcResult MPC::calculateMPC(
   if (m_publish_debug_trajectories) {
     resampled_reference_trajectory =
       MPCUtils::convertToAutowareTrajectory(mpc_resampled_ref_trajectory);
+    debug_msgs->resampled_reference_trajectory = resampled_reference_trajectory;
   }
 
   // generate mpc matrix : predict equation Xec = Aex * x0 + Bex * Uex + Wex
@@ -232,6 +241,7 @@ MpcResult MPC::calculateMPC(
     current_kinematics.twist.twist.linear.x);
   if (!opt_result) {
     MpcResult failure_result{false, fmt::format("optimization failure ({}).", opt_result.error())};
+    failure_result.debug_msgs = debug_msgs;
     setHeader(failure_result, stamp, m_reference_trajectory_frame_id);
     return failure_result;
   }
@@ -264,9 +274,8 @@ MpcResult MPC::calculateMPC(
     mpc_matrix, initial_state, Uex, mpc_resampled_ref_trajectory, prediction_dt, "world");
 
   // Calculate predicted trajectory in Frenet coordinate for debugging purposes
-  Trajectory predicted_trajectory_frenet{};
   if (m_publish_debug_trajectories) {
-    predicted_trajectory_frenet = calculatePredictedTrajectory(
+    debug_msgs->predicted_trajectory_frenet = calculatePredictedTrajectory(
       mpc_matrix, initial_state, Uex, mpc_resampled_ref_trajectory, prediction_dt, "frenet");
   }
 
@@ -285,13 +294,6 @@ MpcResult MPC::calculateMPC(
       (lateral.steering_tire_angle - ctrl_cmd_horizon.controls.back().steering_tire_angle) /
       prediction_dt;
     ctrl_cmd_horizon.controls.push_back(lateral);
-  }
-
-  std::optional<MpcDebugTopicMessage> debug_msgs{};
-  if (m_publish_debug_trajectories) {
-    debug_msgs = MpcDebugTopicMessage{
-      predicted_trajectory_frenet, resampled_reference_trajectory, nearest_pose,
-      mpc_data_raw.nearest_segment_trajectory, mpc_data_raw.nearest_info};
   }
 
   MpcResult result{true,       "",        ctrl_cmd, ctrl_cmd_horizon, predicted_trajectory,
