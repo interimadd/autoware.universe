@@ -127,7 +127,8 @@ Trajectory buildNearestSegmentTrajectory(
   return nearest_segment_trajectory;
 }
 
-void setTimestamp(MpcResult & result, const builtin_interfaces::msg::Time & stamp)
+void setHeader(
+  MpcResult & result, const builtin_interfaces::msg::Time & stamp, const std::string & frame_id)
 {
   result.ctrl_cmd.stamp = stamp;
   for (auto & control : result.ctrl_cmd_horizon.controls) {
@@ -135,6 +136,7 @@ void setTimestamp(MpcResult & result, const builtin_interfaces::msg::Time & stam
   }
   result.diagnostic.stamp = stamp;
   result.predicted_trajectory.header.stamp = stamp;
+  result.predicted_trajectory.header.frame_id = frame_id;
   if (result.debug_msgs) {
     result.debug_msgs->predicted_trajectory_frenet.header.stamp = stamp;
     result.debug_msgs->resampled_reference_trajectory.header.stamp = stamp;
@@ -159,7 +161,7 @@ MpcResult MPC::calculateMPC(
   const auto get_data_result = getData(reference_trajectory, current_steer, current_kinematics);
   if (!get_data_result) {
     MpcResult failure_result{false, fmt::format("getting MPC Data ({}).", get_data_result.error())};
-    setTimestamp(failure_result, stamp);
+    setHeader(failure_result, stamp, m_reference_trajectory_frame_id);
     return failure_result;
   }
   const auto & mpc_data_raw = get_data_result.value();
@@ -192,7 +194,7 @@ MpcResult MPC::calculateMPC(
   if (!delay_compensation_result) {
     MpcResult failure_result{
       false, fmt::format("delay compensation ({}).", delay_compensation_result.error())};
-    setTimestamp(failure_result, stamp);
+    setHeader(failure_result, stamp, m_reference_trajectory_frame_id);
     return failure_result;
   }
   const auto & x0_delayed = delay_compensation_result.value();
@@ -207,7 +209,7 @@ MpcResult MPC::calculateMPC(
   if (!resample_result) {
     MpcResult failure_result{
       false, fmt::format("trajectory resampling ({}).", resample_result.error())};
-    setTimestamp(failure_result, stamp);
+    setHeader(failure_result, stamp, m_reference_trajectory_frame_id);
     return failure_result;
   }
   const auto & mpc_resampled_ref_trajectory = resample_result.value();
@@ -229,7 +231,7 @@ MpcResult MPC::calculateMPC(
     current_kinematics.twist.twist.linear.x);
   if (!opt_result) {
     MpcResult failure_result{false, fmt::format("optimization failure ({}).", opt_result.error())};
-    setTimestamp(failure_result, stamp);
+    setHeader(failure_result, stamp, m_reference_trajectory_frame_id);
     return failure_result;
   }
   const auto & Uex = opt_result.value();
@@ -294,7 +296,7 @@ MpcResult MPC::calculateMPC(
 
   MpcResult result{true,       "",        ctrl_cmd, ctrl_cmd_horizon, predicted_trajectory,
                    diagnostic, debug_msgs};
-  setTimestamp(result, stamp);
+  setHeader(result, stamp, m_reference_trajectory_frame_id);
   return result;
 }
 
@@ -450,6 +452,7 @@ void MPC::setReferenceTrajectory(
   mpc_traj_smoothed.stamp = trajectory_msg.header.stamp;
 
   m_reference_trajectory = mpc_traj_smoothed;
+  m_reference_trajectory_frame_id = trajectory_msg.header.frame_id;
 }
 
 void MPC::resetPrevResult(const SteeringReport & current_steer)

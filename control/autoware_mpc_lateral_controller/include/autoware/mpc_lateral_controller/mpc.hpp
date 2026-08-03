@@ -264,7 +264,8 @@ private:
   double m_yaw_error_prev = 0.0;       // Previous heading error for derivative calculation.
 
   bool m_is_forward_shift = true;  // Flag indicating if the shift is in the forward direction.
-  std::optional<double> m_prev_nearest_time{};  // Stabilized nearest trajectory time.
+  std::optional<double> m_prev_nearest_time{};    // Stabilized nearest trajectory time.
+  std::string m_reference_trajectory_frame_id{};  // Used to fill the header of output messages
 
   /**
    * @brief Get variables for MPC calculation.

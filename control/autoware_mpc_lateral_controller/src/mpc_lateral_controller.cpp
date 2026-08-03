@@ -521,7 +521,6 @@ LateralHorizon MpcLateralController::createCtrlCmdHorizonMsg(
 
 void MpcLateralController::publishPredictedTraj(Trajectory & predicted_traj) const
 {
-  predicted_traj.header.frame_id = m_current_trajectory.header.frame_id;
   m_pub_predicted_traj->publish(predicted_traj);
 }
 
