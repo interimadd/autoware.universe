@@ -216,17 +216,19 @@ private:
   /**
    * @brief Create the control command.
    * @param ctrl_cmd Control command to be created.
+   * @param stamp Timestamp of this control cycle.
    * @return Created control command.
    */
-  Lateral createCtrlCmdMsg(const Lateral & ctrl_cmd);
+  Lateral createCtrlCmdMsg(const Lateral & ctrl_cmd, const builtin_interfaces::msg::Time & stamp);
 
   /**
    * @brief Create the control command horizon message.
    * @param ctrl_cmd_horizon Control command horizon to be created.
+   * @param stamp Timestamp of this control cycle.
    * @return Created control command horizon.
    */
   [[nodiscard]] LateralHorizon createCtrlCmdHorizonMsg(
-    const LateralHorizon & ctrl_cmd_horizon) const;
+    const LateralHorizon & ctrl_cmd_horizon, const builtin_interfaces::msg::Time & stamp) const;
 
   /**
    * @brief Publish the predicted future trajectory.

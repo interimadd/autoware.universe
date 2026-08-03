@@ -198,7 +198,7 @@ TEST_F(MPCTest, InitializeAndCalculate)
 
   // Calculate MPC
   const auto odom = makeOdometry(pose_zero, default_velocity);
-  const auto mpc_result = mpc->calculateMPC(neutral_steer, odom);
+  const auto mpc_result = mpc->calculateMPC(neutral_steer, odom, odom.header.stamp);
   ASSERT_TRUE(mpc_result.result);
   EXPECT_EQ(mpc_result.ctrl_cmd.steering_tire_angle, 0.0f);
   EXPECT_EQ(mpc_result.ctrl_cmd.steering_tire_rotation_rate, 0.0f);
@@ -230,7 +230,7 @@ TEST_F(MPCTest, InitializeAndCalculateRightTurn)
 
   // Calculate MPC
   const auto odom = makeOdometry(pose_zero, default_velocity);
-  const auto mpc_result = mpc->calculateMPC(neutral_steer, odom);
+  const auto mpc_result = mpc->calculateMPC(neutral_steer, odom, odom.header.stamp);
   ASSERT_TRUE(mpc_result.result);
   EXPECT_LT(mpc_result.ctrl_cmd.steering_tire_angle, 0.0f);
   EXPECT_LT(mpc_result.ctrl_cmd.steering_tire_rotation_rate, 0.0f);
@@ -257,7 +257,7 @@ TEST_F(MPCTest, OsqpCalculate)
 
   // Calculate MPC
   const auto odom = makeOdometry(pose_zero, default_velocity);
-  const auto mpc_result = mpc->calculateMPC(neutral_steer, odom);
+  const auto mpc_result = mpc->calculateMPC(neutral_steer, odom, odom.header.stamp);
   EXPECT_TRUE(mpc_result.result);
   EXPECT_EQ(mpc_result.ctrl_cmd.steering_tire_angle, 0.0f);
   EXPECT_EQ(mpc_result.ctrl_cmd.steering_tire_rotation_rate, 0.0f);
@@ -285,7 +285,7 @@ TEST_F(MPCTest, OsqpCalculateRightTurn)
 
   // Calculate MPC
   const auto odom = makeOdometry(pose_zero, default_velocity);
-  const auto mpc_result = mpc->calculateMPC(neutral_steer, odom);
+  const auto mpc_result = mpc->calculateMPC(neutral_steer, odom, odom.header.stamp);
   ASSERT_TRUE(mpc_result.result);
   EXPECT_LT(mpc_result.ctrl_cmd.steering_tire_angle, 0.0f);
   EXPECT_LT(mpc_result.ctrl_cmd.steering_tire_rotation_rate, 0.0f);
@@ -315,7 +315,7 @@ TEST_F(MPCTest, KinematicsNoDelayCalculate)
   mpc->setReferenceTrajectory(dummy_straight_trajectory, trajectory_param, current_kinematics);
   // Calculate MPC
   const auto odom = makeOdometry(pose_zero, default_velocity);
-  const auto mpc_result = mpc->calculateMPC(neutral_steer, odom);
+  const auto mpc_result = mpc->calculateMPC(neutral_steer, odom, odom.header.stamp);
   ASSERT_TRUE(mpc_result.result);
   EXPECT_EQ(mpc_result.ctrl_cmd.steering_tire_angle, 0.0f);
   EXPECT_EQ(mpc_result.ctrl_cmd.steering_tire_rotation_rate, 0.0f);
@@ -346,7 +346,7 @@ TEST_F(MPCTest, KinematicsNoDelayCalculateRightTurn)
 
   // Calculate MPC
   const auto odom = makeOdometry(pose_zero, default_velocity);
-  const auto mpc_result = mpc->calculateMPC(neutral_steer, odom);
+  const auto mpc_result = mpc->calculateMPC(neutral_steer, odom, odom.header.stamp);
   ASSERT_TRUE(mpc_result.result);
   EXPECT_LT(mpc_result.ctrl_cmd.steering_tire_angle, 0.0f);
   EXPECT_LT(mpc_result.ctrl_cmd.steering_tire_rotation_rate, 0.0f);
@@ -371,7 +371,7 @@ TEST_F(MPCTest, DynamicCalculate)
 
   // Calculate MPC
   const auto odom = makeOdometry(pose_zero, default_velocity);
-  const auto mpc_result = mpc->calculateMPC(neutral_steer, odom);
+  const auto mpc_result = mpc->calculateMPC(neutral_steer, odom, odom.header.stamp);
   ASSERT_TRUE(mpc_result.result);
   EXPECT_EQ(mpc_result.ctrl_cmd.steering_tire_angle, 0.0f);
   EXPECT_EQ(mpc_result.ctrl_cmd.steering_tire_rotation_rate, 0.0f);
@@ -397,7 +397,7 @@ TEST_F(MPCTest, MultiSolveWithBuffer)
   const auto odom = makeOdometry(pose_zero, default_velocity);
 
   {
-    const auto mpc_result = mpc->calculateMPC(neutral_steer, odom);
+    const auto mpc_result = mpc->calculateMPC(neutral_steer, odom, odom.header.stamp);
     ASSERT_TRUE(mpc_result.result);
     EXPECT_EQ(mpc_result.ctrl_cmd.steering_tire_angle, 0.0f);
     EXPECT_EQ(mpc_result.ctrl_cmd.steering_tire_rotation_rate, 0.0f);
@@ -407,7 +407,7 @@ TEST_F(MPCTest, MultiSolveWithBuffer)
     EXPECT_EQ(mpc_result.ctrl_cmd_horizon.controls.front().steering_tire_rotation_rate, 0.0f);
   }
   {
-    const auto mpc_result = mpc->calculateMPC(neutral_steer, odom);
+    const auto mpc_result = mpc->calculateMPC(neutral_steer, odom, odom.header.stamp);
     ASSERT_TRUE(mpc_result.result);
     EXPECT_EQ(mpc_result.ctrl_cmd.steering_tire_angle, 0.0f);
     EXPECT_EQ(mpc_result.ctrl_cmd.steering_tire_rotation_rate, 0.0f);
@@ -417,7 +417,7 @@ TEST_F(MPCTest, MultiSolveWithBuffer)
     EXPECT_EQ(mpc_result.ctrl_cmd_horizon.controls.front().steering_tire_rotation_rate, 0.0f);
   }
   {
-    const auto mpc_result = mpc->calculateMPC(neutral_steer, odom);
+    const auto mpc_result = mpc->calculateMPC(neutral_steer, odom, odom.header.stamp);
     ASSERT_TRUE(mpc_result.result);
     EXPECT_EQ(mpc_result.ctrl_cmd.steering_tire_angle, 0.0f);
     EXPECT_EQ(mpc_result.ctrl_cmd.steering_tire_rotation_rate, 0.0f);
@@ -427,7 +427,7 @@ TEST_F(MPCTest, MultiSolveWithBuffer)
     EXPECT_EQ(mpc_result.ctrl_cmd_horizon.controls.front().steering_tire_rotation_rate, 0.0f);
   }
   {
-    const auto mpc_result = mpc->calculateMPC(neutral_steer, odom);
+    const auto mpc_result = mpc->calculateMPC(neutral_steer, odom, odom.header.stamp);
     ASSERT_TRUE(mpc_result.result);
     EXPECT_EQ(mpc_result.ctrl_cmd.steering_tire_angle, 0.0f);
     EXPECT_EQ(mpc_result.ctrl_cmd.steering_tire_rotation_rate, 0.0f);

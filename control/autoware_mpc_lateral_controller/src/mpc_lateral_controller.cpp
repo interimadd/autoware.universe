@@ -270,6 +270,9 @@ void MpcLateralController::setupDiag()
 trajectory_follower::LateralOutput MpcLateralController::run(
   trajectory_follower::InputData const & input_data)
 {
+  // Timestamp of this control cycle, shared by every message this call publishes.
+  const builtin_interfaces::msg::Time stamp = clock_->now();
+
   // set input data
   setTrajectory(input_data.current_trajectory, input_data.current_odometry);
 
@@ -300,7 +303,8 @@ trajectory_follower::LateralOutput MpcLateralController::run(
     m_is_ctrl_cmd_prev_initialized = true;
   }
 
-  auto mpc_solved_status = m_mpc->calculateMPC(m_current_steering, m_current_kinematic_state);
+  auto mpc_solved_status =
+    m_mpc->calculateMPC(m_current_steering, m_current_kinematic_state, stamp);
   Lateral ctrl_cmd = mpc_solved_status.ctrl_cmd;
 
   if (
@@ -328,12 +332,12 @@ trajectory_follower::LateralOutput MpcLateralController::run(
   publishDebugValues(mpc_solved_status.diagnostic);
 
   const auto createLateralOutput =
-    [this](
+    [this, &stamp](
       const auto & cmd, const bool is_mpc_solved,
       const auto & cmd_horizon) -> trajectory_follower::LateralOutput {
     trajectory_follower::LateralOutput output;
-    output.control_cmd = createCtrlCmdMsg(cmd);
-    output.control_cmd_horizon = createCtrlCmdHorizonMsg(cmd_horizon);
+    output.control_cmd = createCtrlCmdMsg(cmd, stamp);
+    output.control_cmd_horizon = createCtrlCmdHorizonMsg(cmd_horizon, stamp);
     // To be sure current steering of the vehicle is desired steering angle, we need to check
     // following conditions.
     // 1. At the last loop, mpc should be solved because command should be optimized output.
@@ -496,28 +500,27 @@ bool MpcLateralController::isStoppedState() const
   return std::fabs(target_vel) < m_stop_state_entry_target_speed;
 }
 
-Lateral MpcLateralController::createCtrlCmdMsg(const Lateral & ctrl_cmd)
+Lateral MpcLateralController::createCtrlCmdMsg(
+  const Lateral & ctrl_cmd, const builtin_interfaces::msg::Time & stamp)
 {
   auto out = ctrl_cmd;
-  out.stamp = clock_->now();
+  out.stamp = stamp;
   m_steer_cmd_prev = out.steering_tire_angle;
   return out;
 }
 
 LateralHorizon MpcLateralController::createCtrlCmdHorizonMsg(
-  const LateralHorizon & ctrl_cmd_horizon) const
+  const LateralHorizon & ctrl_cmd_horizon, const builtin_interfaces::msg::Time & stamp) const
 {
   auto out = ctrl_cmd_horizon;
-  const auto now = clock_->now();
   for (auto & cmd : out.controls) {
-    cmd.stamp = now;
+    cmd.stamp = stamp;
   }
   return out;
 }
 
 void MpcLateralController::publishPredictedTraj(Trajectory & predicted_traj) const
 {
-  predicted_traj.header.stamp = clock_->now();
   predicted_traj.header.frame_id = m_current_trajectory.header.frame_id;
   m_pub_predicted_traj->publish(predicted_traj);
 }

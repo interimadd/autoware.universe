@@ -130,7 +130,8 @@ Trajectory buildNearestSegmentTrajectory(
 }  // namespace
 
 MpcResult MPC::calculateMPC(
-  const SteeringReport & current_steer, const Odometry & current_kinematics)
+  const SteeringReport & current_steer, const Odometry & current_kinematics,
+  const builtin_interfaces::msg::Time & stamp)
 {
   // since the reference trajectory does not take into account the current velocity of the ego
   // vehicle, it needs to calculate the trajectory velocity considering the longitudinal dynamics.
@@ -228,13 +229,11 @@ MpcResult MPC::calculateMPC(
   m_raw_steer_cmd_pprev = m_raw_steer_cmd_prev;
   m_raw_steer_cmd_prev = Uex(0);
 
-  // Use the odometry timestamp so all debug/diagnostic outputs of this MPC cycle
-  const auto & stamp = current_kinematics.header.stamp;
-
   /* calculate predicted trajectory */
   Eigen::VectorXd initial_state = m_use_delayed_initial_state ? x0_delayed : x0;
-  const auto predicted_trajectory = calculatePredictedTrajectory(
+  auto predicted_trajectory = calculatePredictedTrajectory(
     mpc_matrix, initial_state, Uex, mpc_resampled_ref_trajectory, prediction_dt, "world");
+  predicted_trajectory.header.stamp = stamp;
 
   // Calculate predicted trajectory in Frenet coordinate for debugging purposes
   Trajectory predicted_trajectory_frenet{};

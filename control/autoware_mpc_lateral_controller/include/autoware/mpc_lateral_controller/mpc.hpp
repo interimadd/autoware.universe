@@ -498,11 +498,14 @@ public:
    * @brief Calculate control command using the MPC algorithm.
    * @param current_steer Current steering report.
    * @param current_kinematics Current vehicle kinematics.
+   * @param stamp Timestamp of this control cycle, applied to every message in the result.
    * @return The MPC result, including success/failure status, the computed control command, the
    * predicted trajectory, the control command horizon, and the diagnostic data for debugging
    * purposes.
    */
-  MpcResult calculateMPC(const SteeringReport & current_steer, const Odometry & current_kinematics);
+  MpcResult calculateMPC(
+    const SteeringReport & current_steer, const Odometry & current_kinematics,
+    const builtin_interfaces::msg::Time & stamp);
 
   /**
    * @brief Set the reference trajectory to be followed.
