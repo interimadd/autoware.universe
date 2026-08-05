@@ -35,6 +35,10 @@
   <depend>tier4_perception_msgs</depend>
   <depend>tl_expected</depend>
   <test_depend>ament_cmake_ros</test_depend>
+  <test_depend>autoware_component_test_framework</test_depend>
+  <!-- Cross-checks ParameterLoader against declare_cnn_config() (plan §4 Q2 / §7 Phase 4); lives
+       in a separate workspace repo (tier4/autoware_component_test), test-only so this package's
+       production build never depends on it. -->
 
   <export>
     <build_type>ament_cmake</build_type>

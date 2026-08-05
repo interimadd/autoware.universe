@@ -189,6 +189,21 @@ if(BUILD_TESTING)
       ${OpenCV_LIBRARIES}
       ${CUDA_LIBRARIES}
     )
+
+    # Cross-checks the component-test framework's ParameterLoader against declare_cnn_config():
+    # the same param.yaml must build an identical CNNConfig through either path (plan §4 Q2).
+    # Needs an rclcpp::Node, hence the isolated (init/shutdown) gtest variant.
+    ament_add_ros_isolated_gtest(test_classifier_params_cross_check
+      test/test_classifier_params_cross_check.cpp
+    )
+    target_include_directories(test_classifier_params_cross_check PRIVATE
+      ${autoware_component_test_framework_INCLUDE_DIRS}
+    )
+    target_link_libraries(test_classifier_params_cross_check
+      ${PROJECT_NAME}
+      ${PROJECT_NAME}_node
+      ${autoware_component_test_framework_LIBRARIES}
+    )
   endif()
 endif()
 
