@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "cnn_lamp_recognizer.hpp"
+#include "autoware/traffic_light_classifier/classifier/cnn_lamp_recognizer.hpp"
 
-#include "../traffic_light_classifier_process.hpp"
+#include "autoware/traffic_light_classifier/traffic_light_classifier_process.hpp"
 #include "autoware_utils/math/constants.hpp"
 
 #include <autoware/cuda_utils/cuda_check_error.hpp>

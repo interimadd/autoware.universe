@@ -15,8 +15,8 @@
 #ifndef TRAFFIC_LIGHT_CLASSIFIER_NODE_HPP_
 #define TRAFFIC_LIGHT_CLASSIFIER_NODE_HPP_
 
-#include "classifier/classifier_interface.hpp"
-#include "traffic_light_classifier.hpp"
+#include "autoware/traffic_light_classifier/classifier/classifier_interface.hpp"
+#include "autoware/traffic_light_classifier/traffic_light_classifier.hpp"
 
 #include <image_transport/image_transport.hpp>
 #include <image_transport/subscriber_filter.hpp>
@@ -46,11 +46,11 @@
 #include <vector>
 
 #if ENABLE_GPU
-#include "classifier/cnn_classifier.hpp"
-#include "classifier/cnn_lamp_recognizer.hpp"
+#include "autoware/traffic_light_classifier/classifier/cnn_classifier.hpp"
+#include "autoware/traffic_light_classifier/classifier/cnn_lamp_recognizer.hpp"
 #endif
 
-#include "classifier/color_classifier.hpp"
+#include "autoware/traffic_light_classifier/classifier/color_classifier.hpp"
 
 #include <autoware_utils/ros/diagnostics_interface.hpp>
 #include <opencv2/core/core.hpp>

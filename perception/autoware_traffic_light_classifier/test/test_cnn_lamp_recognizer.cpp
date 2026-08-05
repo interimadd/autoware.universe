@@ -30,7 +30,7 @@
 //    is not bit-reproducible). Engine built once per suite.
 //
 
-#include "../src/classifier/cnn_lamp_recognizer.hpp"
+#include "autoware/traffic_light_classifier/classifier/cnn_lamp_recognizer.hpp"
 
 #include <ament_index_cpp/get_package_share_directory.hpp>
 #include <autoware/cuda_utils/cuda_gtest_utils.hpp>

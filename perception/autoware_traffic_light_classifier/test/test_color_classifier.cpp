@@ -21,7 +21,7 @@
 // Tests follow Arrange-Act-Assert.
 //
 
-#include "../src/classifier/color_classifier.hpp"
+#include "autoware/traffic_light_classifier/classifier/color_classifier.hpp"
 
 #include <opencv2/imgproc.hpp>
 

@@ -57,12 +57,10 @@ if(TRT_AVAIL AND CUDA_AVAIL)
   )
 
   ament_auto_add_library(${PROJECT_NAME} SHARED
-    src/classifier_params.cpp
     src/classifier/color_classifier.cpp
     src/classifier/cnn_classifier.cpp
     src/classifier/cnn_lamp_recognizer.cpp
     src/traffic_light_classifier.cpp
-    src/traffic_light_classifier_node.cpp
     src/traffic_light_classifier_process.cpp
   )
   target_link_libraries(${PROJECT_NAME}
@@ -74,29 +72,22 @@ if(TRT_AVAIL AND CUDA_AVAIL)
     ${CUBLAS_LIBRARIES}
     stdc++fs
   )
-  rclcpp_components_register_node(${PROJECT_NAME}
-    PLUGIN "autoware::traffic_light::TrafficLightClassifierNode"
-    EXECUTABLE traffic_light_classifier_node
+
+  ament_auto_add_library(${PROJECT_NAME}_node SHARED
+    src/classifier_params.cpp
+    src/traffic_light_classifier_node.cpp
+  )
+  target_link_libraries(${PROJECT_NAME}_node
+    ${PROJECT_NAME}
   )
 
   ament_auto_add_library(single_image_debug_inference_node SHARED
-    src/classifier_params.cpp
-    src/classifier/cnn_classifier.cpp
-    src/classifier/color_classifier.cpp
-    src/classifier/cnn_lamp_recognizer.cpp
-    src/traffic_light_classifier.cpp
-    src/traffic_light_classifier_node.cpp
-    src/traffic_light_classifier_process.cpp
     src/single_image_debug_inference_node.cpp
   )
   target_link_libraries(single_image_debug_inference_node
+    ${PROJECT_NAME}
+    ${PROJECT_NAME}_node
     ${OpenCV_LIBRARIES}
-    ${NVINFER}
-    ${NVONNXPARSER}
-    ${NVINFER_PLUGIN}
-    ${CUDA_LIBRARIES}
-    ${CUBLAS_LIBRARIES}
-    stdc++fs
     opencv_core
     opencv_highgui
   )
@@ -113,27 +104,36 @@ else()
   )
 
   ament_auto_add_library(${PROJECT_NAME} SHARED
-    src/classifier_params.cpp
     src/classifier/color_classifier.cpp
     src/traffic_light_classifier.cpp
-    src/traffic_light_classifier_node.cpp
     src/traffic_light_classifier_process.cpp
   )
   target_link_libraries(${PROJECT_NAME}
     ${OpenCV_LIBRARIES}
   )
 
-  rclcpp_components_register_node(${PROJECT_NAME}
-    PLUGIN "autoware::traffic_light::TrafficLightClassifierNode"
-    EXECUTABLE traffic_light_classifier_node
+  ament_auto_add_library(${PROJECT_NAME}_node SHARED
+    src/classifier_params.cpp
+    src/traffic_light_classifier_node.cpp
+  )
+  target_link_libraries(${PROJECT_NAME}_node
+    ${PROJECT_NAME}
   )
 
 endif()
+
+rclcpp_components_register_node(${PROJECT_NAME}_node
+  PLUGIN "autoware::traffic_light::TrafficLightClassifierNode"
+  EXECUTABLE traffic_light_classifier_node
+)
 
 if(BUILD_TESTING)
   find_package(ament_cmake_gtest REQUIRED)
   ament_auto_add_gtest(test_utils
     test/test_utils.cpp
+  )
+  target_link_libraries(test_utils
+    ${PROJECT_NAME}
   )
 
   # ROS-free unit tests for the classification core.
@@ -160,6 +160,7 @@ if(BUILD_TESTING)
   )
   target_link_libraries(test_traffic_light_classifier_integration
     ${PROJECT_NAME}
+    ${PROJECT_NAME}_node
     ${OpenCV_LIBRARIES}
   )
 

@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef CLASSIFIER__CNN_CLASSIFIER_HPP_
-#define CLASSIFIER__CNN_CLASSIFIER_HPP_
+#ifndef AUTOWARE__TRAFFIC_LIGHT_CLASSIFIER__CLASSIFIER__CNN_CLASSIFIER_HPP_
+#define AUTOWARE__TRAFFIC_LIGHT_CLASSIFIER__CLASSIFIER__CNN_CLASSIFIER_HPP_
 
 #include "classifier_interface.hpp"
 
@@ -97,4 +97,4 @@ private:
 
 }  // namespace autoware::traffic_light
 
-#endif  // CLASSIFIER__CNN_CLASSIFIER_HPP_
+#endif  // AUTOWARE__TRAFFIC_LIGHT_CLASSIFIER__CLASSIFIER__CNN_CLASSIFIER_HPP_

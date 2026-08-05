@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "../src/traffic_light_classifier_process.hpp"
+#include "autoware/traffic_light_classifier/traffic_light_classifier_process.hpp"
 
 #include <ament_index_cpp/get_package_share_directory.hpp>
 #include <opencv2/imgcodecs.hpp>

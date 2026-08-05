@@ -19,13 +19,13 @@
 // structs the (ROS-free) classifier cores consume. Lives at the node layer, not under classifier/,
 // because declaring parameters is a Node concern; the cores themselves never touch rclcpp.
 
-#include "classifier/color_classifier.hpp"
+#include "autoware/traffic_light_classifier/classifier/color_classifier.hpp"
 
 #include <rclcpp/rclcpp.hpp>
 
 #if ENABLE_GPU
-#include "classifier/cnn_classifier.hpp"
-#include "classifier/cnn_lamp_recognizer.hpp"
+#include "autoware/traffic_light_classifier/classifier/cnn_classifier.hpp"
+#include "autoware/traffic_light_classifier/classifier/cnn_lamp_recognizer.hpp"
 #endif
 
 namespace autoware::traffic_light

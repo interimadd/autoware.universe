@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TRAFFIC_LIGHT_CLASSIFIER_PROCESS_HPP_
-#define TRAFFIC_LIGHT_CLASSIFIER_PROCESS_HPP_
+#ifndef AUTOWARE__TRAFFIC_LIGHT_CLASSIFIER__TRAFFIC_LIGHT_CLASSIFIER_PROCESS_HPP_
+#define AUTOWARE__TRAFFIC_LIGHT_CLASSIFIER__TRAFFIC_LIGHT_CLASSIFIER_PROCESS_HPP_
 
 #include <opencv2/core/core.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
@@ -54,4 +54,4 @@ double compute_brightness(const cv::Mat & img);
 }  // namespace utils
 }  // namespace autoware::traffic_light
 
-#endif  // TRAFFIC_LIGHT_CLASSIFIER_PROCESS_HPP_
+#endif  // AUTOWARE__TRAFFIC_LIGHT_CLASSIFIER__TRAFFIC_LIGHT_CLASSIFIER_PROCESS_HPP_
