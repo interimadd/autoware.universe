@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TRAFFIC_LIGHT_SELECTOR_UTILS_HPP_
-#define TRAFFIC_LIGHT_SELECTOR_UTILS_HPP_
+#ifndef AUTOWARE__TRAFFIC_LIGHT_SELECTOR__TRAFFIC_LIGHT_SELECTOR_UTILS_HPP_
+#define AUTOWARE__TRAFFIC_LIGHT_SELECTOR__TRAFFIC_LIGHT_SELECTOR_UTILS_HPP_
 
 #include <sensor_msgs/msg/region_of_interest.hpp>
 
@@ -45,4 +45,4 @@ double getGenIoU(const RegionOfInterest & bbox1, const RegionOfInterest & bbox2)
 }  // namespace utils
 }  // namespace autoware::traffic_light
 
-#endif  // TRAFFIC_LIGHT_SELECTOR_UTILS_HPP_
+#endif  // AUTOWARE__TRAFFIC_LIGHT_SELECTOR__TRAFFIC_LIGHT_SELECTOR_UTILS_HPP_
