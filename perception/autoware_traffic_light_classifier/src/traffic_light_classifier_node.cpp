@@ -124,31 +124,19 @@ void TrafficLightClassifierNode::image_roi_callback(
   if (!classifier_) {
     return;
   }
-  tier4_perception_msgs::msg::TrafficLightArray output_msg;
-  if (input_rois_msg->rois.empty()) {
-    output_msg.header = input_image_msg->header;
-    traffic_signal_array_pub_->publish(output_msg);
-    return;
-  }
 
-  cv_bridge::CvImagePtr cv_ptr;
-  try {
-    cv_ptr = cv_bridge::toCvCopy(input_image_msg, sensor_msgs::image_encodings::RGB8);
-  } catch (cv_bridge::Exception & e) {
-    RCLCPP_ERROR(
-      this->get_logger(), "Could not convert from '%s' to 'rgb8'.",
-      input_image_msg->encoding.c_str());
-  }
-
-  auto result = classifier_->classify(cv_ptr->image, *input_rois_msg);
+  auto result = classifier_->classify_image(*input_image_msg, *input_rois_msg);
   if (!result) {
-    RCLCPP_ERROR(this->get_logger(), "failed classify image, abort callback");
+    RCLCPP_ERROR(this->get_logger(), "%s", result.error().c_str());
     return;
   }
+  traffic_signal_array_pub_->publish(result->signals);
 
-  output_msg = std::move(result->signals);
-  output_msg.header = input_image_msg->header;
-  traffic_signal_array_pub_->publish(output_msg);
+  if (input_rois_msg->rois.empty()) {
+    // No ROIs to classify for this frame: no diagnostics / debug image, matching the original
+    // early return in this callback before classify_image() took over that decision.
+    return;
+  }
 
   // publish diagnostics
   diagnostics_interface_ptr_->clear();
@@ -162,7 +150,7 @@ void TrafficLightClassifierNode::image_roi_callback(
       diagnostic_msgs::msg::DiagnosticStatus::WARN,
       "Detected out-of-range exposure in ROI. Corresponding ROI was overwritten with UNKNOWN.");
   }
-  diagnostics_interface_ptr_->publish(output_msg.header.stamp);
+  diagnostics_interface_ptr_->publish(result->signals.header.stamp);
 
   // Publish the debug view last, and only when a consumer is attached (building it is a cold path),
   // so a debug-rendering failure cannot skip the primary signal output or diagnostics above.

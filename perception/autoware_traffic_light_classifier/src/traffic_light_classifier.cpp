@@ -18,11 +18,20 @@
 
 #include <autoware/traffic_light_utils/traffic_light_utils.hpp>
 
+// cppcheck-suppress preprocessorErrorDirective
+#if __has_include(<cv_bridge/cv_bridge.hpp>)
+#include <cv_bridge/cv_bridge.hpp>
+#else
+#include <cv_bridge/cv_bridge.h>
+#endif
+
+#include <sensor_msgs/image_encodings.hpp>
 #include <sensor_msgs/msg/region_of_interest.hpp>
 #include <tier4_perception_msgs/msg/traffic_light.hpp>
 
 #include <cstddef>
 #include <memory>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -119,6 +128,34 @@ std::optional<TrafficLightClassifier::Result> TrafficLightClassifier::classify(
   }
 
   return result;
+}
+
+tl::expected<TrafficLightClassifier::Result, std::string> TrafficLightClassifier::classify_image(
+  const sensor_msgs::msg::Image & image_msg,
+  const tier4_perception_msgs::msg::TrafficLightRoiArray & rois_msg) const
+{
+  Result result;
+  result.signals.header = image_msg.header;
+
+  // Skip decoding the image entirely when there is nothing to classify.
+  if (rois_msg.rois.empty()) {
+    return result;
+  }
+
+  cv_bridge::CvImageConstPtr cv_ptr;
+  try {
+    cv_ptr = cv_bridge::toCvCopy(image_msg, sensor_msgs::image_encodings::RGB8);
+  } catch (const cv_bridge::Exception & e) {
+    return tl::make_unexpected(
+      "Could not convert from '" + image_msg.encoding + "' to 'rgb8': " + e.what());
+  }
+
+  auto classified = classify(cv_ptr->image, rois_msg);
+  if (!classified) {
+    return tl::make_unexpected(std::string("failed to classify image"));
+  }
+  classified->signals.header = image_msg.header;
+  return *classified;
 }
 
 cv::Mat TrafficLightClassifier::make_debug_image(const std::vector<cv::Mat> & roi_images) const

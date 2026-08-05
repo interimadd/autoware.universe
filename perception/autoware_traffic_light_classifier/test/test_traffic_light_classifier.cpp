@@ -34,8 +34,15 @@
 #include "autoware/traffic_light_classifier/classifier/classifier_interface.hpp"
 #include "autoware/traffic_light_classifier/traffic_light_classifier.hpp"
 
+// cppcheck-suppress preprocessorErrorDirective
+#if __has_include(<cv_bridge/cv_bridge.hpp>)
+#include <cv_bridge/cv_bridge.hpp>
+#else
+#include <cv_bridge/cv_bridge.h>
+#endif
 #include <opencv2/core/core.hpp>
 
+#include <sensor_msgs/msg/image.hpp>
 #include <std_msgs/msg/header.hpp>
 #include <tier4_perception_msgs/msg/traffic_light_array.hpp>
 #include <tier4_perception_msgs/msg/traffic_light_element.hpp>
@@ -131,6 +138,14 @@ public:
 cv::Mat make_solid_image(const cv::Scalar & color, int width = 16, int height = 16)
 {
   return cv::Mat(height, width, CV_8UC3, color);
+}
+
+// An rgb8-encoded Image message carrying `header`, for classify_image() tests -- the
+// message-level counterpart to make_solid_image().
+sensor_msgs::msg::Image make_image_msg(
+  const std_msgs::msg::Header & header, const cv::Scalar & color, int width = 16, int height = 16)
+{
+  return *cv_bridge::CvImage(header, "rgb8", make_solid_image(color, width, height)).toImageMsg();
 }
 
 // A 32x16 image split into two 16x16 halves: left painted `left`, right painted
@@ -572,6 +587,101 @@ TEST_F(TrafficLightClassifierTest, BackendFailureReturnsNullopt)
 
   // Assert
   EXPECT_FALSE(result.has_value());
+  EXPECT_EQ(fake_classifier_->call_count, 1);
+}
+
+// --------------------------------------------------------------------------
+// classify_image(): message-level orchestration extracted from
+// TrafficLightClassifierNode::image_roi_callback(). A valid ROI is classified and the
+// returned signals carry the input image's header (unlike classify(), which leaves it unset).
+// --------------------------------------------------------------------------
+TEST_F(TrafficLightClassifierTest, ClassifyImageClassifiesAndStampsHeaderFromImage)
+{
+  // Arrange
+  auto classifier = make_classifier(no_over_threshold, no_under_threshold);
+  std_msgs::msg::Header header;
+  header.frame_id = "camera";
+  header.stamp.sec = 123;
+  const auto image_msg = make_image_msg(header, gray);
+  TrafficLightRoiArray rois;
+  rois.rois.push_back(make_valid_roi(/*id=*/7));
+
+  // Act
+  const auto result = classifier.classify_image(image_msg, rois);
+
+  // Assert
+  ASSERT_TRUE(result.has_value());
+  EXPECT_EQ(result->signals.header, header);
+  ASSERT_EQ(result->signals.signals.size(), 1u);
+  EXPECT_EQ(result->signals.signals[0].traffic_light_id, 7);
+  EXPECT_EQ(fake_classifier_->call_count, 1);
+}
+
+// --------------------------------------------------------------------------
+// An empty TrafficLightRoiArray short-circuits before the image is even decoded: the backend
+// is never called, yet the returned signals still carry the input header. Mirrors the original
+// early return in TrafficLightClassifierNode::image_roi_callback().
+// --------------------------------------------------------------------------
+TEST_F(TrafficLightClassifierTest, ClassifyImageWithEmptyRoisSkipsDecodeAndYieldsEmptySignals)
+{
+  // Arrange
+  auto classifier = make_classifier(no_over_threshold, no_under_threshold);
+  std_msgs::msg::Header header;
+  header.frame_id = "camera";
+  header.stamp.sec = 123;
+  const auto image_msg = make_image_msg(header, gray);
+  TrafficLightRoiArray rois;  // no rois
+
+  // Act
+  const auto result = classifier.classify_image(image_msg, rois);
+
+  // Assert
+  ASSERT_TRUE(result.has_value());
+  EXPECT_EQ(result->signals.header, header);
+  EXPECT_EQ(result->signals.signals.size(), 0u);
+  EXPECT_EQ(fake_classifier_->call_count, 0);
+}
+
+// --------------------------------------------------------------------------
+// An Image that cannot be converted to rgb8 (an empty, zero-size image defeats cv_bridge's
+// decode) yields an error instead of dereferencing an unset cv_bridge pointer.
+// --------------------------------------------------------------------------
+TEST_F(TrafficLightClassifierTest, ClassifyImageReturnsErrorWhenImageConversionFails)
+{
+  // Arrange
+  auto classifier = make_classifier(no_over_threshold, no_under_threshold);
+  std_msgs::msg::Header header;
+  sensor_msgs::msg::Image image_msg;  // empty: no encoding, no data
+  image_msg.header = header;
+  TrafficLightRoiArray rois;
+  rois.rois.push_back(make_valid_roi(/*id=*/1));
+
+  // Act
+  const auto result = classifier.classify_image(image_msg, rois);
+
+  // Assert
+  ASSERT_FALSE(result.has_value());
+  EXPECT_EQ(fake_classifier_->call_count, 0);
+}
+
+// --------------------------------------------------------------------------
+// When the backend fails, classify_image() surfaces an error rather than the plain nullopt
+// classify() returns, so the node has a message to log.
+// --------------------------------------------------------------------------
+TEST_F(TrafficLightClassifierTest, ClassifyImageReturnsErrorWhenBackendFails)
+{
+  // Arrange
+  auto classifier = make_classifier(no_over_threshold, no_under_threshold);
+  fake_classifier_->succeed = false;
+  const auto image_msg = make_image_msg(std_msgs::msg::Header{}, gray);
+  TrafficLightRoiArray rois;
+  rois.rois.push_back(make_valid_roi(/*id=*/1));
+
+  // Act
+  const auto result = classifier.classify_image(image_msg, rois);
+
+  // Assert
+  ASSERT_FALSE(result.has_value());
   EXPECT_EQ(fake_classifier_->call_count, 1);
 }
 

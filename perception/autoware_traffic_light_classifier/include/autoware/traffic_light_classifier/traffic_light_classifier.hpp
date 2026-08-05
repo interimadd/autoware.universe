@@ -18,13 +18,16 @@
 #include "classifier/classifier_interface.hpp"
 
 #include <opencv2/core/core.hpp>
+#include <tl_expected/expected.hpp>
 
+#include <sensor_msgs/msg/image.hpp>
 #include <tier4_perception_msgs/msg/traffic_light_array.hpp>
 #include <tier4_perception_msgs/msg/traffic_light_roi_array.hpp>
 
 #include <cstdint>
 #include <memory>
 #include <optional>
+#include <string>
 #include <vector>
 
 namespace autoware::traffic_light
@@ -57,6 +60,15 @@ public:
   // backend fails, so the caller can skip publishing.
   std::optional<Result> classify(
     const cv::Mat & image, const tier4_perception_msgs::msg::TrafficLightRoiArray & rois) const;
+
+  // Message-level orchestration extracted from TrafficLightClassifierNode::image_roi_callback():
+  // converts `image_msg` to rgb8, short-circuits (without decoding) when `rois_msg` has no ROIs,
+  // and stamps the returned signals' header from `image_msg.header`. The node is left with I/O
+  // only (publish, diagnostics, debug image); the empty-rois check is still exposed to the node
+  // via `rois_msg.rois.empty()` so it can also skip diagnostics for that frame, as before.
+  tl::expected<Result, std::string> classify_image(
+    const sensor_msgs::msg::Image & image_msg,
+    const tier4_perception_msgs::msg::TrafficLightRoiArray & rois_msg) const;
 
   // Composite debug view for the most recent classify() call, built from its returned
   // roi_images. Empty when there is nothing to render. Off the hot path: the node calls this
