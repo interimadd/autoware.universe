@@ -16,14 +16,19 @@
 #define AUTOWARE__TRAFFIC_LIGHT_MAP_BASED_DETECTOR__TRAFFIC_LIGHT_MAP_BASED_DETECTOR_PROCESS_HPP_
 
 #include <opencv2/core.hpp>
+#include <rclcpp/time.hpp>
 #include <tf2/LinearMath/Transform.hpp>
 #include <tf2/LinearMath/Vector3.hpp>
 
+#include <std_msgs/msg/header.hpp>
 #include <tier4_perception_msgs/msg/traffic_light_roi_array.hpp>
 
 #include <lanelet2_core/LaneletMap.h>
 #include <lanelet2_core/primitives/Lanelet.h>
+#include <tf2/buffer_core.h>
 
+#include <optional>
+#include <string>
 #include <vector>
 
 #if __has_include(<image_geometry/pinhole_camera_model.hpp>)
@@ -34,8 +39,40 @@
 
 namespace autoware::traffic_light
 {
+
+/// A map->camera transform sampled at a specific point in time.
+struct StampedTransform
+{
+  rclcpp::Time stamp;
+  tf2::Transform transform;
+};
+
+/// Configures how sample_map_to_camera_transforms() spreads its samples around the camera_info
+/// header stamp. Offsets are seconds relative to that stamp (min_timestamp_offset is typically
+/// negative, sampling into the past).
+struct TransformSamplingConfig
+{
+  double min_timestamp_offset;
+  double max_timestamp_offset;
+};
+
+/// Samples the map->camera transform every 0.01 s from
+/// camera_header.stamp + min_timestamp_offset to camera_header.stamp + max_timestamp_offset,
+/// plus the transform at the exact header stamp. Mirrors the sampling loop originally in
+/// MapBasedDetector::camera_info_callback(). Returns std::nullopt when the transform at the
+/// exact header stamp is unavailable, matching the original behavior of aborting the callback
+/// in that case (samples for the offset range that failed to resolve are simply omitted).
+std::optional<std::vector<StampedTransform>> sample_map_to_camera_transforms(
+  const tf2::BufferCore & tf_buffer, const std_msgs::msg::Header & camera_header,
+  const TransformSamplingConfig & config);
+
 namespace utils
 {
+
+/// Looks up the map->frame_id transform at `time` without waiting. Returns std::nullopt on any
+/// tf2::TransformException (e.g. the transform is not yet, or no longer, available).
+std::optional<tf2::Transform> lookup_map_to_camera_transform(
+  const tf2::BufferCore & tf_buffer, const rclcpp::Time & time, const std::string & frame_id);
 
 cv::Point2d calc_raw_image_point_from_point_3d(
   const image_geometry::PinholeCameraModel & pinhole_camera_model, const cv::Point3d & point3d);

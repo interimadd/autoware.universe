@@ -16,18 +16,79 @@
 
 #include <Eigen/Core>
 #include <autoware_utils/math/normalization.hpp>
+#include <rclcpp/duration.hpp>
 
+#include <geometry_msgs/msg/transform_stamped.hpp>
 #include <sensor_msgs/msg/camera_info.hpp>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
 #include <lanelet2_core/Attribute.h>
+#include <tf2/exceptions.h>
+#include <tf2/time.h>
 
 #include <algorithm>
+#include <chrono>
+#include <string>
 #include <vector>
 
 namespace autoware::traffic_light
 {
+
+namespace
+{
+tf2::TimePoint to_tf2_time_point(const rclcpp::Time & time)
+{
+  return tf2::TimePoint(std::chrono::nanoseconds(time.nanoseconds()));
+}
+}  // namespace
+
+std::optional<std::vector<StampedTransform>> sample_map_to_camera_transforms(
+  const tf2::BufferCore & tf_buffer, const std_msgs::msg::Header & camera_header,
+  const TransformSamplingConfig & config)
+{
+  std::vector<StampedTransform> tf_map2camera_samples;
+
+  /* Camera pose in the period */
+  const rclcpp::Time header_stamp(camera_header.stamp);
+  const rclcpp::Time t1 =
+    header_stamp + rclcpp::Duration::from_seconds(config.min_timestamp_offset);
+  const rclcpp::Time t2 =
+    header_stamp + rclcpp::Duration::from_seconds(config.max_timestamp_offset);
+  const rclcpp::Duration interval = rclcpp::Duration::from_seconds(0.01);
+  for (auto t = t1; t <= t2; t += interval) {
+    if (
+      const auto tf = utils::lookup_map_to_camera_transform(tf_buffer, t, camera_header.frame_id)) {
+      tf_map2camera_samples.push_back({t, *tf});
+    }
+  }
+
+  /* Camera pose at the exact moment */
+  const auto tf_map2camera =
+    utils::lookup_map_to_camera_transform(tf_buffer, header_stamp, camera_header.frame_id);
+  if (!tf_map2camera) {
+    return std::nullopt;
+  }
+  tf_map2camera_samples.push_back({header_stamp, *tf_map2camera});
+
+  return tf_map2camera_samples;
+}
+
 namespace utils
 {
+
+std::optional<tf2::Transform> lookup_map_to_camera_transform(
+  const tf2::BufferCore & tf_buffer, const rclcpp::Time & time, const std::string & frame_id)
+{
+  try {
+    const geometry_msgs::msg::TransformStamped transform =
+      tf_buffer.lookupTransform("map", frame_id, to_tf2_time_point(time));
+    tf2::Transform tf;
+    tf2::fromMsg(transform.transform, tf);
+    return tf;
+  } catch (const tf2::TransformException & ex) {
+    return std::nullopt;
+  }
+}
 
 cv::Point2d calc_raw_image_point_from_point_3d(
   const image_geometry::PinholeCameraModel & pinhole_camera_model, const cv::Point3d & point3d)

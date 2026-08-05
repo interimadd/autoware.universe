@@ -46,11 +46,8 @@ struct SetRouteError
   std::string message;
 };
 
-struct StampedTransform
-{
-  rclcpp::Time stamp;
-  tf2::Transform transform;
-};
+// StampedTransform / TransformSamplingConfig / sample_map_to_camera_transforms() live in
+// traffic_light_map_based_detector_process.hpp (included above).
 
 struct DetectionResult
 {

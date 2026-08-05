@@ -14,11 +14,14 @@
 
 #include "autoware/traffic_light_map_based_detector/traffic_light_map_based_detector_process.hpp"
 
+#include <geometry_msgs/msg/transform_stamped.hpp>
 #include <sensor_msgs/msg/camera_info.hpp>
+#include <std_msgs/msg/header.hpp>
 #include <tier4_perception_msgs/msg/traffic_light_roi_array.hpp>
 
 #include <gtest/gtest.h>
 #include <math.h>
+#include <tf2/buffer_core.h>
 
 #include <vector>
 
@@ -167,6 +170,93 @@ TEST(GetCameraYawTest, Calculate)
   const double result = autoware::traffic_light::utils::get_camera_yaw(tf_map2camera);
   const double expected_yaw = -M_PI / 2.0;
   EXPECT_FLOAT_EQ(result, expected_yaw);
+}
+
+namespace
+{
+// A static transform is valid at every timestamp, so it does not depend on tf2 extrapolation
+// behavior.
+geometry_msgs::msg::TransformStamped make_static_map_to_camera_transform()
+{
+  geometry_msgs::msg::TransformStamped transform;
+  transform.header.frame_id = "map";
+  transform.child_frame_id = "camera_optical_link";
+  transform.transform.rotation.w = 1.0;
+  return transform;
+}
+}  // namespace
+
+TEST(LookupMapToCameraTransformTest, ReturnsTransformWhenAvailable)
+{
+  // Arrange
+  tf2::BufferCore tf_buffer;
+  tf_buffer.setTransform(make_static_map_to_camera_transform(), "test", /*is_static=*/true);
+
+  // Act
+  const auto result = autoware::traffic_light::utils::lookup_map_to_camera_transform(
+    tf_buffer, rclcpp::Time(10, 0), "camera_optical_link");
+
+  // Assert
+  ASSERT_TRUE(result.has_value());
+  EXPECT_FLOAT_EQ(result->getRotation().w(), 1.0);
+}
+
+TEST(LookupMapToCameraTransformTest, ReturnsNulloptWhenTransformIsMissing)
+{
+  // Arrange
+  tf2::BufferCore tf_buffer;
+
+  // Act
+  const auto result = autoware::traffic_light::utils::lookup_map_to_camera_transform(
+    tf_buffer, rclcpp::Time(10, 0), "camera_optical_link");
+
+  // Assert
+  EXPECT_FALSE(result.has_value());
+}
+
+TEST(SampleMapToCameraTransformsTest, SamplesEveryTenMillisecondsPlusTheExactStamp)
+{
+  // Arrange
+  tf2::BufferCore tf_buffer;
+  tf_buffer.setTransform(make_static_map_to_camera_transform(), "test", /*is_static=*/true);
+
+  std_msgs::msg::Header camera_header;
+  camera_header.frame_id = "camera_optical_link";
+  camera_header.stamp = rclcpp::Time(10, 0);
+
+  const autoware::traffic_light::TransformSamplingConfig config{-0.02, 0.0};
+
+  // Act
+  const auto result =
+    autoware::traffic_light::sample_map_to_camera_transforms(tf_buffer, camera_header, config);
+
+  // Assert
+  // Loop samples at offsets -0.02, -0.01, 0.0 (3), plus the exact-stamp sample (offset 0.0
+  // again) appended unconditionally: 4 total. The duplicate at offset 0.0 matches the original
+  // MapBasedDetector::camera_info_callback() sampling loop.
+  ASSERT_TRUE(result.has_value());
+  ASSERT_EQ(result->size(), 4u);
+  EXPECT_EQ(result->front().stamp.nanoseconds(), 10'000'000'000L - 20'000'000L);
+  EXPECT_EQ(result->back().stamp.nanoseconds(), 10'000'000'000L);
+}
+
+TEST(SampleMapToCameraTransformsTest, ReturnsNulloptWhenTheExactStampTransformIsMissing)
+{
+  // Arrange
+  tf2::BufferCore tf_buffer;
+
+  std_msgs::msg::Header camera_header;
+  camera_header.frame_id = "camera_optical_link";
+  camera_header.stamp = rclcpp::Time(10, 0);
+
+  const autoware::traffic_light::TransformSamplingConfig config{-0.02, 0.0};
+
+  // Act
+  const auto result =
+    autoware::traffic_light::sample_map_to_camera_transforms(tf_buffer, camera_header, config);
+
+  // Assert
+  EXPECT_FALSE(result.has_value());
 }
 
 int main(int argc, char ** argv)
