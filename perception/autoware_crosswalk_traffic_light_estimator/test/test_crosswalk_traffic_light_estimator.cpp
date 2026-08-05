@@ -375,6 +375,63 @@ TEST(
   assert_crosswalk_color(result, TrafficSignalElement::UNKNOWN);
 }
 
+// ---------------------------------------------------------------------------
+// current_time is now msg.stamp, not get_clock()->now() (component test plan §3.3 (a) / §10):
+// the Node passes the trigger message's own stamp. Two consequences that never happened with
+// now() -- current_time can go backward between consecutive calls (the harness enforces
+// ascending order, but arbiter/production do not, plan §3.3 (a)), and current_time can be the
+// zero epoch (an uninitialized/malformed upstream stamp) -- are pinned here as the accepted
+// behavior (adopted option (a): keep the existing hold-time math as-is; a negative elapsed time
+// never exceeds a positive hold_time, so the entry is kept rather than expired).
+// ---------------------------------------------------------------------------
+
+TEST(CrosswalkTrafficLightEstimatorTest, Estimate_StampGoesBackward_LastDetectColorEntryIsKept)
+{
+  // Arrange
+  auto estimator = make_estimator_with_map();
+  TrafficSignalArray green_msg =
+    make_signal_array({make_signal(VEHICLE_TL_REG_ELEM_ID, TrafficSignalElement::GREEN)});
+  TrafficSignalArray msg_without_vehicle_id;  // vehicle TL absent this cycle
+
+  // Act: first call records last_detect_color_[VEHICLE_TL_REG_ELEM_ID] at t=100s ...
+  const auto first_result = estimator.estimate(green_msg, make_time(100.0));
+  ASSERT_NO_FATAL_FAILURE(assert_crosswalk_color(first_result, TrafficSignalElement::RED));
+
+  // ... then a second call arrives with an EARLIER stamp (t=90s, 10s before the first). With
+  // last_detect_color_hold_time=2.0s, a naive |elapsed| would treat this as expired; the actual
+  // signed elapsed time is 90-100=-10s, which is never > 2.0s, so the entry survives.
+  const auto second_result = estimator.estimate(msg_without_vehicle_id, make_time(90.0));
+
+  // Assert: the crosswalk still reads RED via the retained last-detected GREEN, i.e. the entry
+  // was not treated as expired.
+  assert_crosswalk_color(second_result, TrafficSignalElement::RED);
+}
+
+TEST(CrosswalkTrafficLightEstimatorTest, Estimate_ZeroStamp_DoesNotCrashAndEntryIsKept)
+{
+  // Arrange
+  auto estimator = make_estimator_with_map();
+  TrafficSignalArray green_msg =
+    make_signal_array({make_signal(VEHICLE_TL_REG_ELEM_ID, TrafficSignalElement::GREEN)});
+  TrafficSignalArray msg_without_vehicle_id;
+
+  // Act: build up state at a real, non-zero stamp ...
+  estimator.estimate(green_msg, make_time(50.0));
+
+  // ... then feed a message whose stamp is the zero epoch -- a stamp this malformed never comes
+  // from get_clock()->now(), but msg.stamp (§3.3 (a)) has no such guarantee. make_time(0.0), not
+  // a bare rclcpp::Time{0, 0, ...}, so the clock type matches every other stamp in this test
+  // (rclcpp::Time subtraction throws on a clock-type mismatch, which is not what this test is
+  // about).
+  TrafficSignalArray zero_stamp_result;
+  EXPECT_NO_THROW(
+    { zero_stamp_result = estimator.estimate(msg_without_vehicle_id, make_time(0.0)); });
+
+  // Assert: same reasoning as the backward-stamp case above (elapsed = 0-50 = -50s, never
+  // expired), so the entry is retained and the crosswalk still reads RED.
+  assert_crosswalk_color(zero_stamp_result, TrafficSignalElement::RED);
+}
+
 int main(int argc, char ** argv)
 {
   testing::InitGoogleTest(&argc, argv);

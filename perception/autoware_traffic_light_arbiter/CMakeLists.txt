@@ -43,6 +43,19 @@ if(BUILD_TESTING AND NOT "$ENV{ENABLE_AGNOCAST}" STREQUAL "1")
   target_link_libraries(${PROJECT_NAME}_core_test
     ${PROJECT_NAME}
   )
+
+  # Cross-checks the component-test framework's ParameterLoader against the Node's declared
+  # parameters (component test plan §10). Needs an rclcpp::Node, hence the isolated gtest variant.
+  ament_add_ros_isolated_gtest(${PROJECT_NAME}_params_cross_check_test
+    test/test_traffic_light_arbiter_params_cross_check.cpp
+  )
+  target_include_directories(${PROJECT_NAME}_params_cross_check_test PRIVATE
+    ${autoware_component_test_framework_INCLUDE_DIRS}
+  )
+  target_link_libraries(${PROJECT_NAME}_params_cross_check_test
+    ${PROJECT_NAME}
+    ${autoware_component_test_framework_LIBRARIES}
+  )
 endif()
 
 autoware_ament_auto_package(INSTALL_TO_SHARE launch config)

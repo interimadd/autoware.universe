@@ -339,4 +339,14 @@ TrafficLightArbiter::ArbitrationResult TrafficLightArbiter::arbitrate() const
   return result;
 }
 
+TrafficLightArbiter::ArbitrationResult TrafficLightArbiter::arbitrate(
+  const rclcpp::Time & trigger_stamp) const
+{
+  auto result = arbitrate();
+  if (result.output) {
+    result.output->stamp = trigger_stamp;
+  }
+  return result;
+}
+
 }  // namespace autoware::traffic_light

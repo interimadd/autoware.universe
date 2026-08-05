@@ -60,6 +60,20 @@ if(BUILD_TESTING)
   target_link_libraries(test_crosswalk_traffic_light_estimator
     autoware_crosswalk_traffic_light_estimator
   )
+
+  # Cross-checks the component-test framework's ParameterLoader against the Node's declared
+  # parameters (component test plan §10).
+  find_package(autoware_component_test_framework REQUIRED)
+  ament_add_gtest(test_crosswalk_traffic_light_estimator_params_cross_check
+    test/test_crosswalk_traffic_light_estimator_params_cross_check.cpp
+  )
+  target_include_directories(test_crosswalk_traffic_light_estimator_params_cross_check PRIVATE
+    ${autoware_component_test_framework_INCLUDE_DIRS}
+  )
+  target_link_libraries(test_crosswalk_traffic_light_estimator_params_cross_check
+    autoware_crosswalk_traffic_light_estimator
+    ${autoware_component_test_framework_LIBRARIES}
+  )
 endif()
 
 #############

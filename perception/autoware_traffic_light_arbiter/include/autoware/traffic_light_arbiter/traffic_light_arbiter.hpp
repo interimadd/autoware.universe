@@ -58,15 +58,23 @@ public:
 
   // Result of one arbitration cycle. `output` holds the arbitrated signals by
   // value; std::nullopt means no map has arrived yet, so the Node skips the
-  // publish. The Core leaves output unstamped — the Node owns stamp inheritance
-  // and uses latest_input_time for staleness logging.
+  // publish. latest_input_time is for the caller's staleness logging.
   struct ArbitrationResult
   {
-    std::optional<TrafficSignalArray> output;  // stamp left default; Node fills it in.
+    std::optional<TrafficSignalArray> output;  // stamp left default unless the caller stamps it.
     std::vector<lanelet::Id> off_map_signal_ids;
     rclcpp::Time latest_input_time{0, 0, RCL_ROS_TIME};
   };
+  // Leaves output unstamped. Kept only so pre-existing callers that never cared about the output
+  // stamp still compile; prefer the overload below.
   ArbitrationResult arbitrate() const;
+
+  // Same arbitration, with `output` (if present) stamped with trigger_stamp before being
+  // returned. Stamp inheritance -- the output carries the trigger message's stamp, for
+  // downstream time alignment -- is a Core-level contract, not I/O: both the Node and the
+  // Component Test harness call this overload so the decision lives in exactly one place
+  // (plan §4.3).
+  ArbitrationResult arbitrate(const rclcpp::Time & trigger_stamp) const;
 
 private:
   // True when |current_time - msg_stamp| exceeds external_delay_tolerance_.

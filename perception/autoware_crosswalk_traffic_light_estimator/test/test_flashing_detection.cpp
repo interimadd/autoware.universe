@@ -122,6 +122,29 @@ TEST(FlashingDetectorTest, EstimateStableColor_PrunesOldEntries)
   EXPECT_EQ(color, TrafficSignalElement::UNKNOWN);
 }
 
+// current_time is now msg.stamp end-to-end (component test plan §3.3 (a) / §10), so it is no
+// longer guaranteed to move forward between calls the way get_clock()->now() did. remove_expired_
+// entries() computes a signed elapsed time and only prunes when it exceeds last_colors_hold_time;
+// a negative elapsed time (stamp went backward) can never exceed a positive hold_time, so an
+// older entry survives a later call with an earlier stamp. Pinned here as the accepted behavior
+// (adopted option (a) of plan §3.3 (a)): this path is otherwise unreachable in the Component Test
+// harness, which always merges events in ascending stamp order (plan §3.1).
+TEST(FlashingDetectorTest, EstimateStableColor_ReversedStampDoesNotExpireNewerEntry)
+{
+  // Arrange
+  FlashingDetectorDriver driver(FlashingDetectionConfig{1.0});
+
+  // Act: a GREEN observation at t=10s, then an UNKNOWN observation at t=1s -- 9s EARLIER, well
+  // past the 1.0s hold_time if elapsed were measured as |Δt|.
+  driver.estimate(10.0, TrafficSignalElement::GREEN);
+  const uint8_t color = driver.estimate(1.0, TrafficSignalElement::UNKNOWN);
+
+  // Assert: the GREEN entry at t=10s was not pruned (elapsed = 1-10 = -9s, never > hold_time), so
+  // both entries coexist and the detector still reads this as mid-flash -- holding GREEN, exactly
+  // as it would for a forward-time flash (see FlashingDetected_UnknownAfterGreen above).
+  EXPECT_EQ(color, TrafficSignalElement::GREEN);
+}
+
 // --- clear_state tests ---
 
 TEST(FlashingDetectorTest, ClearState_RemovesTracking)

@@ -52,6 +52,21 @@ if(BUILD_TESTING AND (NOT "$ENV{ENABLE_AGNOCAST}" STREQUAL "1"))
     ${PROJECT_NAME}
     ${PROJECT_NAME}_node
   )
+
+  # Cross-checks the component-test framework's ParameterLoader against the Node's declared
+  # parameters (component test plan §10). Only needs the core config struct plus a bare
+  # rclcpp::Node (see the test file), not the production Node target -- but still needs an
+  # rclcpp::Node, hence the isolated gtest variant.
+  ament_add_ros_isolated_gtest(${PROJECT_NAME}_params_cross_check_test
+    test/test_multi_camera_fusion_params_cross_check.cpp
+  )
+  target_include_directories(${PROJECT_NAME}_params_cross_check_test PRIVATE
+    ${autoware_component_test_framework_INCLUDE_DIRS}
+  )
+  target_link_libraries(${PROJECT_NAME}_params_cross_check_test
+    ${PROJECT_NAME}
+    ${autoware_component_test_framework_LIBRARIES}
+  )
 endif()
 
 ament_auto_package(INSTALL_TO_SHARE

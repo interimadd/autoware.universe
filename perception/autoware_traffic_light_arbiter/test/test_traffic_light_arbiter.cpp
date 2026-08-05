@@ -785,6 +785,56 @@ TEST(TrafficLightArbiterBoundary, emptyMapProducesEmptyOutput)
 }
 
 // ---------------------------------------------------------------------------
+// Stamp inheritance: arbitrate(trigger_stamp) stamps `output` with
+// trigger_stamp (plan §4.3). This is now a Core-level contract -- both the
+// Node and the Component Test harness call this overload -- so it is pinned
+// here rather than only implicitly via the Node.
+// ---------------------------------------------------------------------------
+
+TEST(TrafficLightArbiterStampInheritance, OutputCarriesTriggerStamp)
+{
+  auto arbiter = make_arbiter(CONFIDENCE, /*enable_signal_matching=*/false);
+  arbiter.ingest_perception(
+    make_signal(base_time, map_ids::vehicle_a, {make_element(RED, CIRCLE)}));
+
+  const rclcpp::Time trigger_stamp = base_time + rclcpp::Duration(0, 500'000'000);
+  const auto result = arbiter.arbitrate(trigger_stamp);
+
+  ASSERT_TRUE(result.output.has_value());
+  EXPECT_EQ(rclcpp::Time(result.output->stamp), trigger_stamp);
+}
+
+// No map yet: output stays disengaged, so there is nothing to stamp. Guards
+// against a null-dereference regression in the stamping overload.
+TEST(TrafficLightArbiterStampInheritance, NoOutputStaysUnstampedWithoutCrashing)
+{
+  TrafficLightArbiter unconfigured(
+    CONFIDENCE, /*enable_signal_matching=*/false, default_external_delay_tolerance,
+    default_external_time_tolerance, default_perception_time_tolerance);
+  unconfigured.ingest_perception(
+    make_signal(base_time, map_ids::vehicle_a, {make_element(RED, CIRCLE)}));
+
+  const auto result = unconfigured.arbitrate(base_time);
+
+  EXPECT_FALSE(result.output.has_value());
+}
+
+// The argument-less arbitrate() is kept only for pre-existing callers; it
+// must keep leaving the stamp at its default (zero), not silently pick up
+// the stamped behaviour.
+TEST(TrafficLightArbiterStampInheritance, ArgumentlessOverloadLeavesStampDefault)
+{
+  auto arbiter = make_arbiter(CONFIDENCE, /*enable_signal_matching=*/false);
+  arbiter.ingest_perception(
+    make_signal(base_time, map_ids::vehicle_a, {make_element(RED, CIRCLE)}));
+
+  const auto result = arbiter.arbitrate();
+
+  ASSERT_TRUE(result.output.has_value());
+  EXPECT_EQ(rclcpp::Time(result.output->stamp), rclcpp::Time(0, 0, RCL_ROS_TIME));
+}
+
+// ---------------------------------------------------------------------------
 // Perception staleness: when perception's stamp lags the freshest external
 // stamp by more than perception_time_tolerance, arbitrate() drops the
 // perception side from the current cycle without modifying what has been

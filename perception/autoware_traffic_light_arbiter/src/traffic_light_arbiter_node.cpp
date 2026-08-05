@@ -92,7 +92,10 @@ void TrafficLightArbiterNode::on_external_msg(
 
 void TrafficLightArbiterNode::arbitrate_and_publish(const builtin_interfaces::msg::Time & stamp)
 {
-  auto result = core_->arbitrate();
+  // Stamp inheritance (the output carries the trigger msg's stamp, for downstream time
+  // alignment) is the Core's contract now, not the Node's I/O (plan §4.3): the Component Test
+  // harness calls the same overload so the decision lives in exactly one place.
+  auto result = core_->arbitrate(rclcpp::Time(stamp));
 
   if (!result.output) {
     RCLCPP_WARN_THROTTLE(
@@ -105,10 +108,6 @@ void TrafficLightArbiterNode::arbitrate_and_publish(const builtin_interfaces::ms
       get_logger(), *get_clock(), 5000,
       "Received a traffic signal not present in the current map (%lu)", id);
   }
-
-  // Stamp inheritance is the Node's I/O contract with downstream consumers:
-  // the published output carries the trigger msg's stamp for time alignment.
-  result.output->stamp = stamp;
 
   // Publish by const-ref so the wrapper copies into a freshly borrowed message:
   // agnocast's heaphook only routes allocations into the shared-memory pool
