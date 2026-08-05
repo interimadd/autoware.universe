@@ -15,11 +15,10 @@
 #ifndef TRAFFIC_LIGHT_MULTI_CAMERA_FUSION_NODE_HPP_
 #define TRAFFIC_LIGHT_MULTI_CAMERA_FUSION_NODE_HPP_
 
-#include "multi_camera_fusion.hpp"
-
 #include <autoware/agnocast_wrapper/autoware_agnocast_wrapper.hpp>
 #include <autoware/agnocast_wrapper/message_filters.hpp>
 #include <autoware/agnocast_wrapper/node.hpp>
+#include <autoware/traffic_light_multi_camera_fusion/multi_camera_fusion.hpp>
 #include <autoware_utils/ros/diagnostics_interface.hpp>
 #include <rclcpp/rclcpp.hpp>
 

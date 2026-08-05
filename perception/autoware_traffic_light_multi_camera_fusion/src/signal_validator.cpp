@@ -12,9 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "signal_validator.hpp"
-
-#include "types.hpp"
+#include <autoware/traffic_light_multi_camera_fusion/signal_validator.hpp>
+#include <autoware/traffic_light_multi_camera_fusion/types.hpp>
 
 #include <tier4_perception_msgs/msg/traffic_light_element.hpp>
 

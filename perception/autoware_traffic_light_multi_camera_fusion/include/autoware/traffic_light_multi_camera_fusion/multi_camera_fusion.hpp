@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef MULTI_CAMERA_FUSION_HPP_
-#define MULTI_CAMERA_FUSION_HPP_
+#ifndef AUTOWARE__TRAFFIC_LIGHT_MULTI_CAMERA_FUSION__MULTI_CAMERA_FUSION_HPP_
+#define AUTOWARE__TRAFFIC_LIGHT_MULTI_CAMERA_FUSION__MULTI_CAMERA_FUSION_HPP_
 
-#include "signal_validator.hpp"
-#include "traffic_light_multi_camera_fusion_process.hpp"
-#include "types.hpp"
+#include <autoware/traffic_light_multi_camera_fusion/signal_validator.hpp>
+#include <autoware/traffic_light_multi_camera_fusion/traffic_light_multi_camera_fusion_process.hpp>
+#include <autoware/traffic_light_multi_camera_fusion/types.hpp>
 
 #include <autoware_perception_msgs/msg/traffic_light_group.hpp>
 #include <autoware_perception_msgs/msg/traffic_light_group_array.hpp>
@@ -141,4 +141,4 @@ private:
 
 }  // namespace autoware::traffic_light
 
-#endif  // MULTI_CAMERA_FUSION_HPP_
+#endif  // AUTOWARE__TRAFFIC_LIGHT_MULTI_CAMERA_FUSION__MULTI_CAMERA_FUSION_HPP_

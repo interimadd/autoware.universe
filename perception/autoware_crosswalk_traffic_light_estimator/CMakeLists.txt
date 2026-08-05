@@ -10,13 +10,22 @@ autoware_package()
 
 include_directories()
 
+# Core: no ROS Node, no agnocast (component test plan §9). Depends only on message types,
+# rclcpp::Time, and lanelet -- so a Component Test harness can link this library alone.
 ament_auto_add_library(autoware_crosswalk_traffic_light_estimator SHARED
   src/crosswalk_traffic_light_estimator.cpp
   src/flashing_detection.cpp
-  src/node.cpp
 )
 
-autoware_agnocast_wrapper_register_node(autoware_crosswalk_traffic_light_estimator
+# Node: agnocast wiring only, delegates all logic to the core library above.
+ament_auto_add_library(autoware_crosswalk_traffic_light_estimator_node SHARED
+  src/node.cpp
+)
+target_link_libraries(autoware_crosswalk_traffic_light_estimator_node
+  autoware_crosswalk_traffic_light_estimator
+)
+
+autoware_agnocast_wrapper_register_node(autoware_crosswalk_traffic_light_estimator_node
   PLUGIN "autoware::crosswalk_traffic_light_estimator::CrosswalkTrafficLightEstimatorNode"
   EXECUTABLE crosswalk_traffic_light_estimator_node
   AGNOCAST_EXECUTOR AgnocastOnlyCallbackIsolatedExecutor
@@ -34,6 +43,7 @@ if(BUILD_TESTING)
     )
     target_link_libraries(test_crosswalk_traffic_light_estimator_node
       autoware_crosswalk_traffic_light_estimator
+      autoware_crosswalk_traffic_light_estimator_node
     )
   endif()
 

@@ -12,8 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "../src/traffic_light_multi_camera_fusion_process.hpp"
-
+#include <autoware/traffic_light_multi_camera_fusion/traffic_light_multi_camera_fusion_process.hpp>
 #include <rclcpp/time.hpp>
 
 #include <gtest/gtest.h>
