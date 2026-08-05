@@ -12,10 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TRAFFIC_LIGHT_MAP_BASED_DETECTOR_HPP_
-#define TRAFFIC_LIGHT_MAP_BASED_DETECTOR_HPP_
+#ifndef AUTOWARE__TRAFFIC_LIGHT_MAP_BASED_DETECTOR__TRAFFIC_LIGHT_MAP_BASED_DETECTOR_HPP_
+#define AUTOWARE__TRAFFIC_LIGHT_MAP_BASED_DETECTOR__TRAFFIC_LIGHT_MAP_BASED_DETECTOR_HPP_
 
-#include "traffic_light_map_based_detector_process.hpp"
+#include "autoware/traffic_light_map_based_detector/traffic_light_map_based_detector_process.hpp"
 
 #include <autoware_lanelet2_extension/regulatory_elements/autoware_traffic_light.hpp>
 #include <rclcpp/time.hpp>
@@ -173,4 +173,4 @@ private:
 
 }  // namespace autoware::traffic_light
 
-#endif  // TRAFFIC_LIGHT_MAP_BASED_DETECTOR_HPP_
+#endif  // AUTOWARE__TRAFFIC_LIGHT_MAP_BASED_DETECTOR__TRAFFIC_LIGHT_MAP_BASED_DETECTOR_HPP_

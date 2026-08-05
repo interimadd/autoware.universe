@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TRAFFIC_LIGHT_MAP_BASED_DETECTOR_PROCESS_HPP_
-#define TRAFFIC_LIGHT_MAP_BASED_DETECTOR_PROCESS_HPP_
+#ifndef AUTOWARE__TRAFFIC_LIGHT_MAP_BASED_DETECTOR__TRAFFIC_LIGHT_MAP_BASED_DETECTOR_PROCESS_HPP_
+#define AUTOWARE__TRAFFIC_LIGHT_MAP_BASED_DETECTOR__TRAFFIC_LIGHT_MAP_BASED_DETECTOR_PROCESS_HPP_
 
 #include <opencv2/core.hpp>
 #include <tf2/LinearMath/Transform.hpp>
@@ -71,4 +71,4 @@ double get_camera_yaw(const tf2::Transform & tf_map2camera);
 }  // namespace utils
 }  // namespace autoware::traffic_light
 
-#endif  // TRAFFIC_LIGHT_MAP_BASED_DETECTOR_PROCESS_HPP_
+#endif  // AUTOWARE__TRAFFIC_LIGHT_MAP_BASED_DETECTOR__TRAFFIC_LIGHT_MAP_BASED_DETECTOR_PROCESS_HPP_
