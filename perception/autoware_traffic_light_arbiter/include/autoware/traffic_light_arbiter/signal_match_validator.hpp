@@ -24,17 +24,13 @@
 
 #include <memory>
 #include <optional>
+#include <string>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 namespace autoware::traffic_light
 {
-
-enum class SourcePriority {
-  CONFIDENCE,  // Use confidence-based selection
-  EXTERNAL,    // Prioritize external signals
-  PERCEPTION   // Prioritize perception signals
-};
 
 /**
  * @class SignalMatchValidator
@@ -56,11 +52,14 @@ public:
    * @brief Construct a validator with the source-priority mode fixed at
    *        construction. The mode is immutable for the validator's lifetime.
    *
-   * @param source_priority CONFIDENCE (confidence-based selection),
-   *                        EXTERNAL (prioritize external), or
-   *                        PERCEPTION (prioritize perception).
+   * @param source_priority "confidence" (confidence-based selection),
+   *                        "external" (prioritize external), or
+   *                        "perception" (prioritize perception). Any other
+   *                        value is treated as "confidence", mirroring
+   *                        TrafficLightArbiterNode's parameter fallback.
    */
-  explicit SignalMatchValidator(SourcePriority source_priority) : source_priority_(source_priority)
+  explicit SignalMatchValidator(std::string source_priority)
+  : source_priority_(std::move(source_priority))
   {
   }
 
@@ -93,7 +92,7 @@ public:
   void set_pedestrian_traffic_light_ids(std::unordered_set<lanelet::Id> ids);
 
 private:
-  SourcePriority source_priority_;
+  std::string source_priority_;
   std::unordered_set<lanelet::Id> pedestrian_traffic_light_ids_;
 
   /**

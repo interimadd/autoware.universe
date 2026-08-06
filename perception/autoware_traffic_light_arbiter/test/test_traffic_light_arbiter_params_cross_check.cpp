@@ -39,20 +39,9 @@ namespace
 namespace tl = autoware::traffic_light;
 using autoware::component_test_framework::ParameterLoader;
 
-// Mirrors TrafficLightArbiterNode's source_priority string-to-enum parsing
-// (traffic_light_arbiter_node.cpp). Falls back to CONFIDENCE for an unrecognized value, same as
-// production: the Node logs a warning there instead of throwing, so replicating a hard failure
-// here would make the two paths diverge on exactly this input.
-tl::SourcePriority parse_source_priority(const std::string & value)
-{
-  if (value == "external") return tl::SourcePriority::EXTERNAL;
-  if (value == "perception") return tl::SourcePriority::PERCEPTION;
-  return tl::SourcePriority::CONFIDENCE;
-}
-
 struct ArbiterCtorArgs
 {
-  tl::SourcePriority source_priority;
+  std::string source_priority;
   bool enable_signal_matching;
   double external_delay_tolerance;
   double external_time_tolerance;
@@ -60,11 +49,14 @@ struct ArbiterCtorArgs
 };
 
 // The ParameterLoader-side mirror of the Node's parameter reads that feed the TrafficLightArbiter
-// constructor.
+// constructor. Unlike the Node, this doesn't normalize an unrecognized source_priority to
+// "confidence" -- TrafficLightArbiter/SignalMatchValidator already treat any value other than
+// "external"/"perception" as confidence-based selection, so the raw string round-trips
+// identically either way.
 ArbiterCtorArgs build_arbiter_args_via_parameter_loader(const ParameterLoader & loader)
 {
   ArbiterCtorArgs args;
-  args.source_priority = parse_source_priority(loader.get<std::string>("source_priority"));
+  args.source_priority = loader.get<std::string>("source_priority");
   args.enable_signal_matching = loader.get<bool>("enable_signal_matching");
   args.external_delay_tolerance = loader.get<double>("external_delay_tolerance");
   args.external_time_tolerance = loader.get<double>("external_time_tolerance");
@@ -90,8 +82,7 @@ TEST(TrafficLightArbiterParamsCrossCheckTest, ParameterLoaderMatchesNodeDeclared
     std::make_shared<rclcpp::Node>("traffic_light_arbiter_params_cross_check", node_options);
 
   ArbiterCtorArgs args_from_node;
-  args_from_node.source_priority =
-    parse_source_priority(node->get_parameter("source_priority").as_string());
+  args_from_node.source_priority = node->get_parameter("source_priority").as_string();
   args_from_node.enable_signal_matching = node->get_parameter("enable_signal_matching").as_bool();
   args_from_node.external_delay_tolerance =
     node->get_parameter("external_delay_tolerance").as_double();

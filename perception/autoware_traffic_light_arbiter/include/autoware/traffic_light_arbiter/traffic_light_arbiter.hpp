@@ -24,6 +24,7 @@
 
 #include <memory>
 #include <optional>
+#include <string>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
@@ -40,8 +41,10 @@ public:
   using TrafficSignalArray = autoware_perception_msgs::msg::TrafficLightGroupArray;
   using TrafficSignal = autoware_perception_msgs::msg::TrafficLightGroup;
 
+  // source_priority is "confidence", "external", or "perception"; any other value is treated as
+  // "confidence" (see TrafficLightArbiterNode's parameter fallback).
   TrafficLightArbiter(
-    SourcePriority source_priority, bool enable_signal_matching, double external_delay_tolerance,
+    std::string source_priority, bool enable_signal_matching, double external_delay_tolerance,
     double external_time_tolerance, double perception_time_tolerance);
 
   // Extracts and stores the regulatory-element IDs the Core needs from the map
@@ -91,7 +94,7 @@ private:
   // so the pointer is the single source of truth for the mode.
   bool is_signal_matching_enabled() const { return signal_match_validator_ != nullptr; }
 
-  SourcePriority source_priority_;
+  std::string source_priority_;
   double external_delay_tolerance_;
   double external_time_tolerance_;
   double perception_time_tolerance_;
