@@ -78,12 +78,8 @@ void CrosswalkTrafficLightEstimatorNode::on_traffic_light_array(
     RCLCPP_WARN(get_logger(), "Traffic light group ID %ld is not registered in the map", id);
   }
 
-  // current_time is msg->stamp, not get_clock()->now(): estimate() only ever uses current_time
-  // for stamping a saved entry or diffing against one already saved, never as an absolute wall
-  // clock reading, so sensor-time and processing-time measure the same "how stale is this"
-  // question and the two sources cannot drift apart (component test plan §3.3 (a)).
   auto output_ptr = ALLOCATE_OUTPUT_MESSAGE_UNIQUE(pub_traffic_light_array_);
-  *output_ptr = estimator_.estimate(*msg, rclcpp::Time(msg->stamp));
+  *output_ptr = estimator_.estimate(*msg);
 
   pub_traffic_light_array_->publish(std::move(output_ptr));
   pub_processing_time_->publish<Float64Stamped>("processing_time_ms", stop_watch_.toc("Total"));

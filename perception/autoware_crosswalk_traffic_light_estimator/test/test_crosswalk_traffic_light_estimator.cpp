@@ -56,6 +56,13 @@ rclcpp::Time make_time(double seconds)
   return rclcpp::Time(static_cast<int64_t>(seconds * 1e9));
 }
 
+/// @brief stamp msg with the given time, mirroring what the Node passes as msg->stamp.
+TrafficSignalArray & stamped(TrafficSignalArray & msg, double seconds)
+{
+  msg.stamp = make_time(seconds);
+  return msg;
+}
+
 TrafficSignal make_signal(lanelet::Id tl_id, uint8_t color, float confidence = 1.0)
 {
   TrafficSignal signal;
@@ -275,7 +282,7 @@ TEST(CrosswalkTrafficLightEstimatorTest, Estimate_FirstCallWithGreenVehicle_Cros
     make_signal_array({make_signal(VEHICLE_TL_REG_ELEM_ID, TrafficSignalElement::GREEN)});
 
   // Act: GREEN vehicle signal is sufficient to estimate crosswalk as RED, even on first call
-  const auto result = estimator.estimate(green_msg, make_time(0.0));
+  const auto result = estimator.estimate(stamped(green_msg, 0.0));
 
   // Assert
   assert_crosswalk_color(result, TrafficSignalElement::RED);
@@ -289,7 +296,7 @@ TEST(CrosswalkTrafficLightEstimatorTest, Estimate_UnknownVehicleNoHistory_Crossw
     make_signal_array({make_signal(VEHICLE_TL_REG_ELEM_ID, TrafficSignalElement::UNKNOWN)});
 
   // Act: UNKNOWN vehicle signal with no prior history → crosswalk cannot be estimated
-  const auto result = estimator.estimate(unknown_msg, make_time(0.0));
+  const auto result = estimator.estimate(stamped(unknown_msg, 0.0));
 
   // Assert
   assert_crosswalk_color(result, TrafficSignalElement::UNKNOWN);
@@ -303,7 +310,7 @@ TEST(CrosswalkTrafficLightEstimatorTest, Estimate_StraightGreenVehicle_Crosswalk
     make_signal_array({make_signal(VEHICLE_TL_REG_ELEM_ID, TrafficSignalElement::GREEN)});
 
   // Act
-  const auto result = estimator.estimate(green_msg, make_time(0.0));
+  const auto result = estimator.estimate(stamped(green_msg, 0.0));
 
   // Assert: straight green vehicle signal → crosswalk should be RED
   assert_crosswalk_color(result, TrafficSignalElement::RED);
@@ -317,7 +324,7 @@ TEST(CrosswalkTrafficLightEstimatorTest, Estimate_RedVehicle_CrosswalkUnknown)
     make_signal_array({make_signal(VEHICLE_TL_REG_ELEM_ID, TrafficSignalElement::RED)});
 
   // Act
-  const auto result = estimator.estimate(red_msg, make_time(0.0));
+  const auto result = estimator.estimate(stamped(red_msg, 0.0));
 
   // Assert: vehicle is RED → crosswalk signal is UNKNOWN (cannot determine)
   assert_crosswalk_color(result, TrafficSignalElement::UNKNOWN);
@@ -330,7 +337,7 @@ TEST(CrosswalkTrafficLightEstimatorTest, Estimate_EmptyInput_ReturnsEmpty)
   TrafficSignalArray empty_msg;
 
   // Act
-  const auto result = estimator.estimate(empty_msg, make_time(0.0));
+  const auto result = estimator.estimate(stamped(empty_msg, 0.0));
 
   // Assert
   EXPECT_TRUE(result.traffic_light_groups.empty());
@@ -348,7 +355,7 @@ TEST(
     make_signal_array({make_signal(VEHICLE_TL_REG_ELEM_ID, TrafficSignalElement::GREEN)});
 
   // Act
-  const auto result = estimator.estimate(input, make_time(0.0));
+  const auto result = estimator.estimate(stamped(input, 0.0));
 
   // Assert: override (GREEN) wins over normal estimation (RED)
   assert_crosswalk_color(result, TrafficSignalElement::GREEN);
@@ -369,7 +376,7 @@ TEST(
     make_signal_array({make_signal(VEHICLE_TL_RIGHT_ID, TrafficSignalElement::GREEN)});
 
   // Act
-  const auto result = estimator.estimate(input, make_time(0.0));
+  const auto result = estimator.estimate(stamped(input, 0.0));
 
   // Assert: crosswalk must be UNKNOWN, not RED
   assert_crosswalk_color(result, TrafficSignalElement::UNKNOWN);
@@ -394,13 +401,13 @@ TEST(CrosswalkTrafficLightEstimatorTest, Estimate_StampGoesBackward_LastDetectCo
   TrafficSignalArray msg_without_vehicle_id;  // vehicle TL absent this cycle
 
   // Act: first call records last_detect_color_[VEHICLE_TL_REG_ELEM_ID] at t=100s ...
-  const auto first_result = estimator.estimate(green_msg, make_time(100.0));
+  const auto first_result = estimator.estimate(stamped(green_msg, 100.0));
   ASSERT_NO_FATAL_FAILURE(assert_crosswalk_color(first_result, TrafficSignalElement::RED));
 
   // ... then a second call arrives with an EARLIER stamp (t=90s, 10s before the first). With
   // last_detect_color_hold_time=2.0s, a naive |elapsed| would treat this as expired; the actual
   // signed elapsed time is 90-100=-10s, which is never > 2.0s, so the entry survives.
-  const auto second_result = estimator.estimate(msg_without_vehicle_id, make_time(90.0));
+  const auto second_result = estimator.estimate(stamped(msg_without_vehicle_id, 90.0));
 
   // Assert: the crosswalk still reads RED via the retained last-detected GREEN, i.e. the entry
   // was not treated as expired.
@@ -416,16 +423,16 @@ TEST(CrosswalkTrafficLightEstimatorTest, Estimate_ZeroStamp_DoesNotCrashAndEntry
   TrafficSignalArray msg_without_vehicle_id;
 
   // Act: build up state at a real, non-zero stamp ...
-  estimator.estimate(green_msg, make_time(50.0));
+  estimator.estimate(stamped(green_msg, 50.0));
 
   // ... then feed a message whose stamp is the zero epoch -- a stamp this malformed never comes
-  // from get_clock()->now(), but msg.stamp (§3.3 (a)) has no such guarantee. make_time(0.0), not
-  // a bare rclcpp::Time{0, 0, ...}, so the clock type matches every other stamp in this test
+  // from get_clock()->now(), but msg.stamp (§3.3 (a)) has no such guarantee. stamped(..., 0.0),
+  // not a bare rclcpp::Time{0, 0, ...}, so the clock type matches every other stamp in this test
   // (rclcpp::Time subtraction throws on a clock-type mismatch, which is not what this test is
   // about).
   TrafficSignalArray zero_stamp_result;
   EXPECT_NO_THROW(
-    { zero_stamp_result = estimator.estimate(msg_without_vehicle_id, make_time(0.0)); });
+    { zero_stamp_result = estimator.estimate(stamped(msg_without_vehicle_id, 0.0)); });
 
   // Assert: same reasoning as the backward-stamp case above (elapsed = 0-50 = -50s, never
   // expired), so the entry is retained and the crosswalk still reads RED.
