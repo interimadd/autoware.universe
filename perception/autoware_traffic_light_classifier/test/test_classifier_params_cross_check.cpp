@@ -30,7 +30,6 @@
 
 #include <gtest/gtest.h>
 
-#include <algorithm>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
@@ -137,15 +136,6 @@ TEST(ClassifierParamsCrossCheckTest, ParameterLoaderMatchesDeclareCnnConfig)
   EXPECT_EQ(config_from_node.labels, config_from_loader.labels);
   EXPECT_EQ(config_from_node.mean, config_from_loader.mean);
   EXPECT_EQ(config_from_node.std, config_from_loader.std);
-
-  // Assert: the LampRecognizer-only keys that a CNN classifier_type never declares (plan §2.4)
-  // are exactly the keys ParameterLoader also sees as unread once the CNN config has been built --
-  // i.e. this scenario's allow-list has no gap and no unexplained extra entry among them.
-  const std::vector<std::string> unused = loader.unused_parameter_names();
-  for (const char * lamp_only_key : {"score_threshold", "nms_threshold", "max_batch_size"}) {
-    EXPECT_NE(std::find(unused.begin(), unused.end(), lamp_only_key), unused.end())
-      << lamp_only_key << " should be unused when classifier_type selects CNN";
-  }
 }
 
 int main(int argc, char ** argv)

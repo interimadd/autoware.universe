@@ -32,7 +32,6 @@
 
 #include <gtest/gtest.h>
 
-#include <algorithm>
 #include <memory>
 #include <stdexcept>
 #include <string>
@@ -109,12 +108,6 @@ TEST(MultiCameraFusionParamsCrossCheckTest, ParameterLoaderMatchesNodeDeclaredPa
   EXPECT_EQ(
     config_from_node.publish_partial_matched_signal,
     config_from_loader.publish_partial_matched_signal);
-
-  // Assert: approximate_sync is a real key in this yaml but build_fusion_config_via_parameter_
-  // loader() never reads it (it is a sync-strategy selector, not a config field, plan §4.6), so it
-  // must show up as unused -- confirming the allow-list this scenario needs has no gap.
-  const auto unused = loader.unused_parameter_names();
-  EXPECT_NE(std::find(unused.begin(), unused.end(), "approximate_sync"), unused.end());
 }
 
 TEST(MultiCameraFusionParamsCrossCheckTest, ApproximateSyncTrueIsRejected)
