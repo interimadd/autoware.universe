@@ -17,13 +17,6 @@
 
 #include <diagnostic_msgs/msg/diagnostic_status.hpp>
 
-// cppcheck-suppress preprocessorErrorDirective
-#if __has_include(<cv_bridge/cv_bridge.hpp>)
-#include <cv_bridge/cv_bridge.hpp>
-#else
-#include <cv_bridge/cv_bridge.h>
-#endif
-
 #include <memory>
 #include <string>
 #include <utility>
@@ -161,10 +154,8 @@ void TrafficLightClassifierNode::image_roi_callback(
   // Publish the debug view last, and only when a consumer is attached (building it is a cold path),
   // so a debug-rendering failure cannot skip the primary signal output or diagnostics above.
   if (debug_image_pub_.getNumSubscribers() > 0) {
-    const cv::Mat debug_image = classifier_->make_debug_image(result->roi_images);
-    if (!debug_image.empty()) {
-      const auto debug_image_msg =
-        cv_bridge::CvImage(std_msgs::msg::Header(), "rgb8", debug_image).toImageMsg();
+    const auto debug_image_msg = classifier_->make_debug_image(*result);
+    if (debug_image_msg) {
       debug_image_pub_.publish(debug_image_msg);
     }
   }

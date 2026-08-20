@@ -254,7 +254,7 @@ TEST_F(TrafficLightClassifierTest, RoiImagesAreClassifiedSubsetForwardedToDebug)
   // Act
   const auto result = classifier.classify(image, rois);
   ASSERT_TRUE(result.has_value());
-  classifier.make_debug_image(result->roi_images);
+  classifier.make_debug_image(*result);
 
   // Assert: roi_images holds only the 1 classified ROI -- distinct from both the 3
   // inputs and the 2 output signals (classified + appended-UNKNOWN) -- and that same

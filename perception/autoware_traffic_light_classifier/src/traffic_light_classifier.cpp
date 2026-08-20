@@ -143,9 +143,15 @@ std::optional<TrafficLightClassifier::Result> TrafficLightClassifier::classify(
   return result;
 }
 
-cv::Mat TrafficLightClassifier::make_debug_image(const std::vector<cv::Mat> & roi_images) const
+sensor_msgs::msg::Image::ConstSharedPtr TrafficLightClassifier::make_debug_image(
+  const Result & result) const
 {
-  return classifier_->make_debug_image(roi_images);
+  const cv::Mat debug_image = classifier_->make_debug_image(result.roi_images);
+  if (debug_image.empty()) {
+    return nullptr;
+  }
+  return cv_bridge::CvImage(result.signals.header, sensor_msgs::image_encodings::RGB8, debug_image)
+    .toImageMsg();
 }
 
 }  // namespace autoware::traffic_light

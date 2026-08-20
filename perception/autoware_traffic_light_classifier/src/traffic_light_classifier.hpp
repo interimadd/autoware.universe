@@ -60,10 +60,10 @@ public:
     const sensor_msgs::msg::Image & image_msg,
     const tier4_perception_msgs::msg::TrafficLightRoiArray & rois) const;
 
-  // Composite debug view for the most recent classify() call, built from its returned
-  // roi_images. Empty when there is nothing to render. Off the hot path: the node calls this
-  // only when a debug consumer is attached.
-  cv::Mat make_debug_image(const std::vector<cv::Mat> & roi_images) const;
+  // Composite debug view for a classify() result, built from its roi_images and stamped with
+  // its signals' header. Returns nullptr when there is nothing to render. Off the hot path: the
+  // node calls this only when a debug consumer is attached.
+  sensor_msgs::msg::Image::ConstSharedPtr make_debug_image(const Result & result) const;
 
 private:
   std::shared_ptr<ClassifierInterface> classifier_;
