@@ -18,8 +18,16 @@
 
 #include <autoware/traffic_light_utils/traffic_light_utils.hpp>
 
+#include <sensor_msgs/image_encodings.hpp>
 #include <sensor_msgs/msg/region_of_interest.hpp>
 #include <tier4_perception_msgs/msg/traffic_light.hpp>
+
+// cppcheck-suppress preprocessorErrorDirective
+#if __has_include(<cv_bridge/cv_bridge.hpp>)
+#include <cv_bridge/cv_bridge.hpp>
+#else
+#include <cv_bridge/cv_bridge.h>
+#endif
 
 #include <cstddef>
 #include <memory>
@@ -39,9 +47,22 @@ TrafficLightClassifier::TrafficLightClassifier(
 }
 
 std::optional<TrafficLightClassifier::Result> TrafficLightClassifier::classify(
-  const cv::Mat & image, const tier4_perception_msgs::msg::TrafficLightRoiArray & rois) const
+  const sensor_msgs::msg::Image & image_msg,
+  const tier4_perception_msgs::msg::TrafficLightRoiArray & rois) const
 {
   Result result;
+  if (rois.rois.empty()) {
+    result.signals.header = image_msg.header;
+    return result;
+  }
+
+  cv_bridge::CvImagePtr cv_ptr;
+  try {
+    cv_ptr = cv_bridge::toCvCopy(image_msg, sensor_msgs::image_encodings::RGB8);
+  } catch (const cv_bridge::Exception &) {
+    return std::nullopt;
+  }
+  const cv::Mat & image = cv_ptr->image;
 
   std::vector<cv::Mat> images;
   // Valid ROIs in classification order (parallel to `images`). The classifier returns elements
@@ -118,6 +139,7 @@ std::optional<TrafficLightClassifier::Result> TrafficLightClassifier::classify(
     traffic_light_utils::setSignalUnknown(signal, 0.0);
   }
 
+  result.signals.header = image_msg.header;
   return result;
 }
 
