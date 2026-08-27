@@ -55,22 +55,24 @@ autoware::tensorrt_yolox::TrtYoloXDetectorConfig declare_whole_image_detector_co
 {
   autoware::tensorrt_yolox::TrtYoloXDetectorConfig config;
   config.model_path = model_path;
-  config.precision = node->declare_parameter<std::string>(joined(prefix, "precision"));
   config.score_threshold =
     static_cast<float>(node->declare_parameter<double>(joined(prefix, "score_threshold")));
   config.nms_threshold =
     static_cast<float>(node->declare_parameter<double>(joined(prefix, "nms_threshold")));
-  config.calibration_algorithm =
-    node->declare_parameter<std::string>(joined(prefix, "calibration_algorithm"));
-  config.dla_core_id = node->declare_parameter<int>(joined(prefix, "dla_core_id"));
-  config.quantize_first_layer =
-    node->declare_parameter<bool>(joined(prefix, "quantize_first_layer"));
-  config.quantize_last_layer = node->declare_parameter<bool>(joined(prefix, "quantize_last_layer"));
-  config.profile_per_layer = node->declare_parameter<bool>(joined(prefix, "profile_per_layer"));
-  config.clip_value = node->declare_parameter<double>(joined(prefix, "clip_value"));
-  config.calibration_image_list_path =
-    node->declare_parameter<std::string>(joined(prefix, "calibration_image_list_path"));
-  config.gpu_id = static_cast<uint8_t>(node->declare_parameter<int>(joined(prefix, "gpu_id")));
+  // Only fp16 models are used in this package, so precision and the int8-only knobs
+  // (calibration_algorithm / dla_core_id / quantize_first_layer / quantize_last_layer /
+  // clip_value / calibration_image_list_path) are fixed rather than exposed as parameters.
+  // profile_per_layer is dev-only (may affect execution speed) and likewise fixed. gpu_id is
+  // fixed to the default CUDA device: this package does not need per-node GPU selection.
+  config.precision = "fp16";
+  config.calibration_algorithm = "Entropy";
+  config.dla_core_id = -1;
+  config.quantize_first_layer = false;
+  config.quantize_last_layer = false;
+  config.profile_per_layer = false;
+  config.clip_value = 6.0;
+  config.calibration_image_list_path = "";
+  config.gpu_id = 0;
 
   config.roi_labels = autoware::tensorrt_yolox::load_label_maps(label_path, roi_remap_path, "");
   // The traffic-light yolox model has no segmentation head: these are fixed rather than exposed
@@ -82,25 +84,23 @@ autoware::tensorrt_yolox::TrtYoloXDetectorConfig declare_whole_image_detector_co
   return config;
 }
 
-TrafficLightMapBasedDetectorConfig declare_map_based_detector_config(
-  rclcpp::Node * node, const std::string & prefix)
+TrafficLightMapBasedDetectorConfig declare_map_based_detector_config()
 {
   TrafficLightMapBasedDetectorConfig config;
-  config.max_vibration_pitch =
-    node->declare_parameter<double>(joined(prefix, "max_vibration_pitch"));
-  config.max_vibration_yaw = node->declare_parameter<double>(joined(prefix, "max_vibration_yaw"));
-  config.max_vibration_height =
-    node->declare_parameter<double>(joined(prefix, "max_vibration_height"));
-  config.max_vibration_width =
-    node->declare_parameter<double>(joined(prefix, "max_vibration_width"));
-  config.max_vibration_depth =
-    node->declare_parameter<double>(joined(prefix, "max_vibration_depth"));
-  config.max_detection_range =
-    node->declare_parameter<double>(joined(prefix, "max_detection_range"));
-  config.car_traffic_light_max_angle_range =
-    node->declare_parameter<double>(joined(prefix, "car_traffic_light_max_angle_range"));
-  config.pedestrian_traffic_light_max_angle_range =
-    node->declare_parameter<double>(joined(prefix, "pedestrian_traffic_light_max_angle_range"));
+  // Fixed rather than declared as parameters: unlike min_/max_timestamp_offset (declared in
+  // declare_transform_sampling_config(), read from this same prefix), none of these vary between
+  // deployments in practice -- the calibration-error margins (max_vibration_*) and the
+  // range/angle cutoffs (max_detection_range / *_traffic_light_max_angle_range) use the same
+  // defaults as autoware_traffic_light_map_based_detector's own config, with no per-vehicle or
+  // per-camera override in use.
+  config.max_vibration_pitch = 0.01745329251;
+  config.max_vibration_yaw = 0.01745329251;
+  config.max_vibration_height = 0.5;
+  config.max_vibration_width = 0.5;
+  config.max_vibration_depth = 0.5;
+  config.max_detection_range = 200.0;
+  config.car_traffic_light_max_angle_range = 40.0;
+  config.pedestrian_traffic_light_max_angle_range = 80.0;
   return config;
 }
 
@@ -117,23 +117,27 @@ TransformSamplingConfig declare_transform_sampling_config(
 
 TrafficLightRecognitionClassifierConfig declare_classifier_config(
   rclcpp::Node * node, const std::string & prefix, const std::string & model_path,
-  const std::string & label_path)
+  const std::string & label_path, uint8_t classify_traffic_light_type)
 {
   TrafficLightRecognitionClassifierConfig config;
-  config.classify_traffic_light_type =
-    static_cast<uint8_t>(node->declare_parameter<int>(joined(prefix, "traffic_light_type")));
+  // Which classifier instance this is (car vs. pedestrian) is fixed by the caller's choice of
+  // prefix, not read as a parameter -- see declare_classifier_config()'s declaration comment.
+  config.classify_traffic_light_type = classify_traffic_light_type;
   config.over_exposure_threshold =
     node->declare_parameter<double>(joined(prefix, "over_exposure_threshold"));
   config.under_exposure_threshold =
     node->declare_parameter<double>(joined(prefix, "under_exposure_threshold"));
 
   config.cnn.model_path = model_path;
-  config.cnn.precision = node->declare_parameter<std::string>(joined(prefix, "precision"));
+  // Only fp16 models are used in this package, so precision is fixed rather than exposed as a
+  // parameter (see the same rationale in declare_whole_image_detector_config()). mean/std are the
+  // per-channel (RGB) input normalization statistics the classifier model was trained with -- a
+  // property of the model, not something to tune per deployment -- so they are fixed here too,
+  // matching the ImageNet-style normalization both car and pedestrian classifier models use.
+  config.cnn.precision = "fp16";
   config.cnn.labels = read_label_file(node, label_path);
-  const auto mean = node->declare_parameter<std::vector<double>>(joined(prefix, "mean"));
-  const auto std_dev = node->declare_parameter<std::vector<double>>(joined(prefix, "std"));
-  config.cnn.mean = std::vector<float>(mean.begin(), mean.end());
-  config.cnn.std = std::vector<float>(std_dev.begin(), std_dev.end());
+  config.cnn.mean = {123.675f, 116.28f, 103.53f};
+  config.cnn.std = {58.395f, 57.12f, 57.375f};
   return config;
 }
 

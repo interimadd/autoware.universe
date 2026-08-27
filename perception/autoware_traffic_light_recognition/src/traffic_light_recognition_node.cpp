@@ -16,6 +16,8 @@
 
 #include "traffic_light_recognition_params.hpp"
 
+#include <tier4_perception_msgs/msg/traffic_light.hpp>
+
 #include <memory>
 #include <string>
 #include <utility>
@@ -41,20 +43,22 @@ TrafficLightRecognitionConfig declare_config(rclcpp::Node * node)
     node, "whole_image_detector", whole_image_model_path, whole_image_label_path,
     whole_image_roi_remap_path);
 
-  config.map_based_detector = declare_map_based_detector_config(node, "map_based_detector");
+  config.map_based_detector = declare_map_based_detector_config();
   config.transform_sampling = declare_transform_sampling_config(node, "map_based_detector");
 
   const auto car_model_path = node->declare_parameter<std::string>("car_classifier.model_path");
   const auto car_label_path = node->declare_parameter<std::string>("car_classifier.label_path");
-  config.car_classifier =
-    declare_classifier_config(node, "car_classifier", car_model_path, car_label_path);
+  config.car_classifier = declare_classifier_config(
+    node, "car_classifier", car_model_path, car_label_path,
+    tier4_perception_msgs::msg::TrafficLight::CAR_TRAFFIC_LIGHT);
 
   const auto pedestrian_model_path =
     node->declare_parameter<std::string>("pedestrian_classifier.model_path");
   const auto pedestrian_label_path =
     node->declare_parameter<std::string>("pedestrian_classifier.label_path");
   config.pedestrian_classifier = declare_classifier_config(
-    node, "pedestrian_classifier", pedestrian_model_path, pedestrian_label_path);
+    node, "pedestrian_classifier", pedestrian_model_path, pedestrian_label_path,
+    tier4_perception_msgs::msg::TrafficLight::PEDESTRIAN_TRAFFIC_LIGHT);
 
   return config;
 }

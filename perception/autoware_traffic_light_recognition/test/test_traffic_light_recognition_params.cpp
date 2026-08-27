@@ -107,9 +107,11 @@ TEST_F(ParamsTest, WholeImageDetectorConfigMatchesDefaultYaml)
     node.get(), "whole_image_detector", "/tmp/does_not_need_to_exist.onnx", label_path_, "");
 
   // Assert
-  EXPECT_EQ(config.precision, "fp16");
   EXPECT_FLOAT_EQ(config.score_threshold, 0.35f);
   EXPECT_FLOAT_EQ(config.nms_threshold, 0.7f);
+  // precision / the int8-only knobs / profile_per_layer / gpu_id are fixed, not read from
+  // parameters: this package only ever runs fp16 models on the default CUDA device.
+  EXPECT_EQ(config.precision, "fp16");
   EXPECT_EQ(config.calibration_algorithm, "Entropy");
   EXPECT_EQ(config.dla_core_id, -1);
   EXPECT_FALSE(config.quantize_first_layer);
@@ -123,13 +125,13 @@ TEST_F(ParamsTest, WholeImageDetectorConfigMatchesDefaultYaml)
   EXPECT_TRUE(config.semseg_color_map.empty());
 }
 
-TEST_F(ParamsTest, MapBasedDetectorConfigMatchesDefaultYaml)
+// declare_map_based_detector_config() takes no parameters -- every field is fixed rather than
+// read from the node (unlike min_/max_timestamp_offset, covered by
+// TransformSamplingConfigMatchesDefaultYaml below).
+TEST_F(ParamsTest, MapBasedDetectorConfigIsFixed)
 {
-  // Arrange
-  auto node = make_test_node(label_path_);
-
   // Act
-  const auto config = tl::declare_map_based_detector_config(node.get(), "map_based_detector");
+  const auto config = tl::declare_map_based_detector_config();
 
   // Assert
   EXPECT_DOUBLE_EQ(config.max_vibration_pitch, 0.01745329251);
@@ -167,9 +169,11 @@ TEST_F(ParamsTest, CarAndPedestrianClassifierPrefixesAreDistinct)
 
   // Act
   const auto car_config = tl::declare_classifier_config(
-    node.get(), "car_classifier", "/tmp/does_not_need_to_exist_car.onnx", label_path_);
+    node.get(), "car_classifier", "/tmp/does_not_need_to_exist_car.onnx", label_path_,
+    tier4_perception_msgs::msg::TrafficLight::CAR_TRAFFIC_LIGHT);
   const auto pedestrian_config = tl::declare_classifier_config(
-    node.get(), "pedestrian_classifier", "/tmp/does_not_need_to_exist_ped.onnx", label_path_);
+    node.get(), "pedestrian_classifier", "/tmp/does_not_need_to_exist_ped.onnx", label_path_,
+    tier4_perception_msgs::msg::TrafficLight::PEDESTRIAN_TRAFFIC_LIGHT);
 
   // Assert -- prefix separation is what makes these differ.
   EXPECT_EQ(
@@ -180,7 +184,9 @@ TEST_F(ParamsTest, CarAndPedestrianClassifierPrefixesAreDistinct)
     tier4_perception_msgs::msg::TrafficLight::PEDESTRIAN_TRAFFIC_LIGHT);
   EXPECT_NE(car_config.classify_traffic_light_type, pedestrian_config.classify_traffic_light_type);
 
-  // Both share the same non-prefix-dependent defaults from the package config.
+  // Both share the same non-prefix-dependent defaults from the package config. precision and
+  // mean/std are fixed, not read from parameters (this package only ever runs fp16 models, and
+  // mean/std are a property of the trained model rather than a per-deployment tuning knob).
   for (const auto & config : {car_config, pedestrian_config}) {
     EXPECT_EQ(config.cnn.precision, "fp16");
     EXPECT_DOUBLE_EQ(config.over_exposure_threshold, 0.85);

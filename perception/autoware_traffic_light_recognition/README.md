@@ -71,7 +71,7 @@ the existing per-stage Nodes.
 See [config/traffic_light_recognition.param.yaml](config/traffic_light_recognition.param.yaml)
 and [schema/traffic_light_recognition.schema.json](schema/traffic_light_recognition.schema.json).
 
-Three things are true of this package's parameter surface, all deliberate:
+Several things are true of this package's parameter surface, all deliberate:
 
 - **`classifier_type` is fixed to CNN.** Both `car_classifier` and `pedestrian_classifier` always
   use `autoware::traffic_light::CNNClassifier`; there is no `classifier_type` parameter (HSV /
@@ -81,15 +81,42 @@ Three things are true of this package's parameter surface, all deliberate:
   segmentation head, so `is_roi_overlap_segmentation` / `is_publish_color_mask` /
   `overlap_roi_score_threshold` / the semseg color map are fixed internally
   (`declare_whole_image_detector_config()`) rather than declared as parameters.
+- **Only fp16 models are supported.** `precision` (for both the whole-image detector and both
+  classifiers) is fixed to `"fp16"` in source rather than declared as a parameter. The int8-only
+  knobs that would otherwise go with it (`calibration_algorithm` / `dla_core_id` /
+  `quantize_first_layer` / `quantize_last_layer` / `clip_value` / `calibration_image_list_path`)
+  and the dev-only `profile_per_layer` are likewise fixed. Supporting another precision would mean
+  reintroducing these as parameters at that point.
+- **Classifier input normalization (`mean` / `std`) is fixed.** These are per-channel statistics
+  the classifier model was trained with, not a per-deployment tuning knob, and both car and
+  pedestrian classifier models use the same ImageNet-style values. They are fixed in
+  `declare_classifier_config()` rather than declared as parameters; a future model trained with
+  different normalization would reintroduce them at that point.
+- **`traffic_light_type` is not a parameter.** Which ROIs a classifier instance classifies
+  (`CAR_TRAFFIC_LIGHT` vs. `PEDESTRIAN_TRAFFIC_LIGHT`) is fixed by which prefix the caller chose
+  (`car_classifier` vs. `pedestrian_classifier`); `declare_config()` passes the corresponding
+  `tier4_perception_msgs::msg::TrafficLight` constant into `declare_classifier_config()` directly,
+  so a parameter would only ever restate that choice.
+- **Only `map_based_detector.min_timestamp_offset` / `max_timestamp_offset` are parameters.** The
+  calibration-error margins (`max_vibration_pitch` / `max_vibration_yaw` / `max_vibration_height`
+  / `max_vibration_width` / `max_vibration_depth`) and the range/angle cutoffs
+  (`max_detection_range` / `car_traffic_light_max_angle_range` /
+  `pedestrian_traffic_light_max_angle_range`) are fixed in `declare_map_based_detector_config()`,
+  which takes no arguments: unlike the timestamp offsets (genuinely per-camera, see below), none
+  of these have an established per-vehicle or per-camera override in practice.
+- **`gpu_id` is not exposed.** The whole-image detector always runs on the default CUDA device;
+  this package does not need per-node GPU selection. (The classifier backend
+  (`autoware_tensorrt_classifier`) has no `gpu_id` concept at all, always using the default
+  device -- this is not an omission on this package's part.)
 - **`model_path` / `label_path` / `roi_remap_path` are not in `config/traffic_light_recognition.param.yaml`.**
   They are injected as separate top-level parameters (see
   [launch/traffic_light_recognition.launch.xml](launch/traffic_light_recognition.launch.xml)) so
   the versioned config file never hard-codes a `$HOME/autoware_data`-relative path.
 
 `car_classifier` and `pedestrian_classifier` are read through the same
-`declare_classifier_config(node, prefix, model_path, label_path)` function, called once per
-prefix -- the only difference between the two calls is the parameter prefix and the model/label
-files passed in.
+`declare_classifier_config(node, prefix, model_path, label_path, classify_traffic_light_type)`
+function, called once per prefix -- the only difference between the two calls is the parameter
+prefix, the model/label files, and the `classify_traffic_light_type` constant passed in.
 
 ### Per-camera deployment
 
