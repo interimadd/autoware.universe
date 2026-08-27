@@ -11,7 +11,6 @@ ament_auto_add_library(${PROJECT_NAME} SHARED
 
 # Node アダプタ（param 変換を含む）
 ament_auto_add_library(${PROJECT_NAME}_node SHARED
-  src/traffic_light_recognition_params.cpp
   src/traffic_light_recognition_node.cpp
 )
 target_link_libraries(${PROJECT_NAME}_node ${PROJECT_NAME})
@@ -49,8 +48,8 @@ if(BUILD_TESTING)
     target_link_libraries(test_${PROJECT_NAME} ${PROJECT_NAME})
   endif()
 
-  # Node-level param -> config conversion test. No GPU needed: declare_*_config() only declares
-  # parameters and reads label files, it never builds a TensorRT engine.
+  # Node-level param -> config conversion test. No GPU needed: declare_config() only declares
+  # parameters, it never builds a TensorRT engine.
   ament_add_ros_isolated_gtest(test_${PROJECT_NAME}_params
     test/test_traffic_light_recognition_params.cpp
   )

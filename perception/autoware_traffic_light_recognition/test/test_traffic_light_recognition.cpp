@@ -37,14 +37,12 @@
 #include <autoware_planning_msgs/msg/lanelet_route.hpp>
 #include <autoware_planning_msgs/msg/lanelet_segment.hpp>
 #include <geometry_msgs/msg/transform_stamped.hpp>
-#include <tier4_perception_msgs/msg/traffic_light.hpp>
 
 #include <gtest/gtest.h>
 #include <lanelet2_core/LaneletMap.h>
 
 #include <cstdlib>
 #include <filesystem>
-#include <fstream>
 #include <memory>
 #include <optional>
 #include <string>
@@ -97,17 +95,6 @@ std::string resolve_classifier_file(const std::string & filename)
     }
   }
   return "";
-}
-
-std::vector<std::string> read_label_lines(const std::string & path)
-{
-  std::ifstream file(path);
-  std::vector<std::string> labels;
-  std::string label;
-  while (std::getline(file, label)) {
-    labels.push_back(label);
-  }
-  return labels;
 }
 
 // A flat solid-color BGR8 image big enough for the yolox model's expected input.
@@ -167,20 +154,6 @@ std::unique_ptr<tf2::BufferCore> make_tf_buffer_with_camera_transform()
   return buffer;
 }
 
-tl::TrafficLightMapBasedDetectorConfig make_map_based_detector_config()
-{
-  tl::TrafficLightMapBasedDetectorConfig config;
-  config.max_vibration_pitch = 0.01745329251;
-  config.max_vibration_yaw = 0.01745329251;
-  config.max_vibration_height = 0.5;
-  config.max_vibration_width = 0.5;
-  config.max_vibration_depth = 0.5;
-  config.max_detection_range = 200.0;
-  config.car_traffic_light_max_angle_range = 40.0;
-  config.pedestrian_traffic_light_max_angle_range = 80.0;
-  return config;
-}
-
 // Builds the real TrafficLightRecognitionConfig once for the whole suite (each TensorRT engine
 // build is minutes-long). When a model or a usable GPU is missing, config_ stays unset and
 // skip_reason_ explains why; each test then GTEST_SKIPs.
@@ -208,43 +181,28 @@ protected:
       return;
     }
 
+    // Only the values actually supplied via ROS 2 parameters / launch arguments in production
+    // (plan §5.1) are set here -- precision, mean/std, gpu_id, classify_traffic_light_type, the
+    // map_based_detector calibration-error margins and range/angle cutoffs, etc. are fixed inside
+    // TrafficLightRecognition's constructor itself (traffic_light_recognition.cpp).
     tl::TrafficLightRecognitionConfig config;
-    config.whole_image_detector.model_path = yolox_model;
-    config.whole_image_detector.precision = "fp16";
-    config.whole_image_detector.score_threshold = 0.35f;
-    config.whole_image_detector.nms_threshold = 0.7f;
-    config.whole_image_detector.calibration_algorithm = "Entropy";
-    config.whole_image_detector.dla_core_id = -1;
-    config.whole_image_detector.quantize_first_layer = false;
-    config.whole_image_detector.quantize_last_layer = false;
-    config.whole_image_detector.profile_per_layer = false;
-    config.whole_image_detector.clip_value = 6.0;
-    config.whole_image_detector.calibration_image_list_path = "";
-    config.whole_image_detector.gpu_id = 0;
-    config.whole_image_detector.is_roi_overlap_semseg = false;
-    config.whole_image_detector.is_publish_color_mask = false;
-    config.whole_image_detector.overlap_roi_score_threshold = 0.0f;
+    config.whole_image_detector_model_path = yolox_model;
+    config.whole_image_detector_label_path = yolox_label;
+    config.whole_image_detector_score_threshold = 0.35f;
+    config.whole_image_detector_nms_threshold = 0.7f;
 
-    config.map_based_detector = make_map_based_detector_config();
-    config.transform_sampling.min_timestamp_offset = -0.3;
-    config.transform_sampling.max_timestamp_offset = 0.0;
+    config.min_timestamp_offset = -0.3;
+    config.max_timestamp_offset = 0.0;
 
-    const auto mean = std::vector<float>{123.675f, 116.28f, 103.53f};
-    const auto std_dev = std::vector<float>{58.395f, 57.12f, 57.375f};
+    config.car_classifier_model_path = classifier_model;
+    config.car_classifier_label_path = classifier_label;
+    config.car_classifier_over_exposure_threshold = 0.85;
+    config.car_classifier_under_exposure_threshold = -0.83;
 
-    config.car_classifier.classify_traffic_light_type =
-      tier4_perception_msgs::msg::TrafficLight::CAR_TRAFFIC_LIGHT;
-    config.car_classifier.over_exposure_threshold = 0.85;
-    config.car_classifier.under_exposure_threshold = -0.83;
-    config.car_classifier.cnn.model_path = classifier_model;
-    config.car_classifier.cnn.precision = "fp16";
-    config.car_classifier.cnn.labels = read_label_lines(classifier_label);
-    config.car_classifier.cnn.mean = mean;
-    config.car_classifier.cnn.std = std_dev;
-
-    config.pedestrian_classifier = config.car_classifier;
-    config.pedestrian_classifier.classify_traffic_light_type =
-      tier4_perception_msgs::msg::TrafficLight::PEDESTRIAN_TRAFFIC_LIGHT;
+    config.pedestrian_classifier_model_path = classifier_model;
+    config.pedestrian_classifier_label_path = classifier_label;
+    config.pedestrian_classifier_over_exposure_threshold = 0.85;
+    config.pedestrian_classifier_under_exposure_threshold = -0.83;
 
     config_ = std::move(config);
     tf_buffer_ = make_tf_buffer_with_camera_transform();

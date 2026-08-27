@@ -79,8 +79,8 @@ Several things are true of this package's parameter surface, all deliberate:
   at that point rather than exposing a knob with only one valid value today.
 - **Semantic-segmentation parameters are not exposed.** The traffic-light yolox model has no
   segmentation head, so `is_roi_overlap_segmentation` / `is_publish_color_mask` /
-  `overlap_roi_score_threshold` / the semseg color map are fixed internally
-  (`declare_whole_image_detector_config()`) rather than declared as parameters.
+  `overlap_roi_score_threshold` / the semseg color map are fixed internally rather than declared
+  as parameters.
 - **Only fp16 models are supported.** `precision` (for both the whole-image detector and both
   classifiers) is fixed to `"fp16"` in source rather than declared as a parameter. The int8-only
   knobs that would otherwise go with it (`calibration_algorithm` / `dla_core_id` /
@@ -89,21 +89,20 @@ Several things are true of this package's parameter surface, all deliberate:
   reintroducing these as parameters at that point.
 - **Classifier input normalization (`mean` / `std`) is fixed.** These are per-channel statistics
   the classifier model was trained with, not a per-deployment tuning knob, and both car and
-  pedestrian classifier models use the same ImageNet-style values. They are fixed in
-  `declare_classifier_config()` rather than declared as parameters; a future model trained with
-  different normalization would reintroduce them at that point.
+  pedestrian classifier models use the same ImageNet-style values. They are fixed internally
+  rather than declared as parameters; a future model trained with different normalization would
+  reintroduce them at that point.
 - **`traffic_light_type` is not a parameter.** Which ROIs a classifier instance classifies
-  (`CAR_TRAFFIC_LIGHT` vs. `PEDESTRIAN_TRAFFIC_LIGHT`) is fixed by which prefix the caller chose
-  (`car_classifier` vs. `pedestrian_classifier`); `declare_config()` passes the corresponding
-  `tier4_perception_msgs::msg::TrafficLight` constant into `declare_classifier_config()` directly,
-  so a parameter would only ever restate that choice.
+  (`CAR_TRAFFIC_LIGHT` vs. `PEDESTRIAN_TRAFFIC_LIGHT`) is fixed by which classifier the value is
+  built for, not by anything read from the parameter tree, so a parameter would only ever restate
+  that choice.
 - **Only `map_based_detector.min_timestamp_offset` / `max_timestamp_offset` are parameters.** The
   calibration-error margins (`max_vibration_pitch` / `max_vibration_yaw` / `max_vibration_height`
   / `max_vibration_width` / `max_vibration_depth`) and the range/angle cutoffs
   (`max_detection_range` / `car_traffic_light_max_angle_range` /
-  `pedestrian_traffic_light_max_angle_range`) are fixed in `declare_map_based_detector_config()`,
-  which takes no arguments: unlike the timestamp offsets (genuinely per-camera, see below), none
-  of these have an established per-vehicle or per-camera override in practice.
+  `pedestrian_traffic_light_max_angle_range`) are fixed internally: unlike the timestamp offsets
+  (genuinely per-camera, see below), none of these have an established per-vehicle or per-camera
+  override in practice.
 - **`gpu_id` is not exposed.** The whole-image detector always runs on the default CUDA device;
   this package does not need per-node GPU selection. (The classifier backend
   (`autoware_tensorrt_classifier`) has no `gpu_id` concept at all, always using the default
@@ -113,10 +112,23 @@ Several things are true of this package's parameter surface, all deliberate:
   [launch/traffic_light_recognition.launch.xml](launch/traffic_light_recognition.launch.xml)) so
   the versioned config file never hard-codes a `$HOME/autoware_data`-relative path.
 
-`car_classifier` and `pedestrian_classifier` are read through the same
-`declare_classifier_config(node, prefix, model_path, label_path, classify_traffic_light_type)`
-function, called once per prefix -- the only difference between the two calls is the parameter
-prefix, the model/label files, and the `classify_traffic_light_type` constant passed in.
+### Where each value lives
+
+`declare_config(rclcpp::Node *)` (declared in `traffic_light_recognition_node.hpp`, defined in
+`traffic_light_recognition_node.cpp` alongside the Node itself) declares parameters and nothing
+else: it reads exactly the values listed above (plus the
+launch-injected paths) into a deliberately flat `TrafficLightRecognitionConfig`
+([traffic_light_recognition.hpp](include/autoware/traffic_light_recognition/traffic_light_recognition.hpp)) --
+one struct with no nested per-core config types. It never touches a model or label file, and
+knows nothing about precision, mean/std, `gpu_id`, or any other fixed value above.
+
+Every fixed value, and the label-file reads and nested `TrtYoloXDetectorConfig` /
+`TrafficLightMapBasedDetectorConfig` / `CNNConfig` construction that goes with them, live in
+`traffic_light_recognition.cpp` instead: `TrafficLightRecognition`'s constructor and the
+`build_engines()` free function (used by `build_only`, below) both build those nested configs from
+the flat `TrafficLightRecognitionConfig` via the same internal helpers. This keeps the ROS-free
+core the single place that knows how the pipeline's cores are actually configured; the Node layer
+only ever sees the flat, parameter-sourced config.
 
 ### Per-camera deployment
 
@@ -129,11 +141,11 @@ camera-independent default.
 
 ## Testing
 
-| Test                                                  | GPU          | Content                                                                                                                                               |
-| ----------------------------------------------------- | ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `test_autoware_traffic_light_recognition`             | required     | `TrafficLightRecognition::run()` with an empty map / no route, tf-resolution failure, `set_route()` error propagation                                 |
-| `test_autoware_traffic_light_recognition_params`      | not required | `declare_*_config()` against the package's default config, including that `car_classifier` / `pedestrian_classifier` read distinct parameter prefixes |
-| `test_autoware_traffic_light_recognition_integration` | required     | Node pub/sub: the 3 production output topics fire                                                                                                     |
+| Test                                                  | GPU          | Content                                                                                                                                             |
+| ----------------------------------------------------- | ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `test_autoware_traffic_light_recognition`             | required     | `TrafficLightRecognition::run()` with an empty map / no route, tf-resolution failure, `set_route()` error propagation                               |
+| `test_autoware_traffic_light_recognition_params`      | not required | `declare_config()` against the package's default config, including that `car_classifier` / `pedestrian_classifier` read distinct parameter prefixes |
+| `test_autoware_traffic_light_recognition_integration` | required     | Node pub/sub: the 3 production output topics fire                                                                                                   |
 
 GPU-gated tests are additionally compiled only when CUDA and TensorRT are detected
 (`TRT_AVAIL AND CUDA_AVAIL` in `CMakeLists.txt`, matching `autoware_traffic_light_classifier`'s

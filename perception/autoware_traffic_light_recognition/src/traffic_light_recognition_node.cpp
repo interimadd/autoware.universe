@@ -14,10 +14,6 @@
 
 #include "traffic_light_recognition_node.hpp"
 
-#include "traffic_light_recognition_params.hpp"
-
-#include <tier4_perception_msgs/msg/traffic_light.hpp>
-
 #include <memory>
 #include <string>
 #include <utility>
@@ -26,43 +22,52 @@ namespace autoware::traffic_light
 {
 namespace
 {
-// Builds the TrafficLightRecognitionConfig from the node's parameters. model_path / label_path /
-// roi_remap_path are not part of the versioned config file (plan §5.1): they are declared here,
-// directly, as plain top-level parameters that a launch file injects.
+std::string joined(const std::string & prefix, const std::string & key)
+{
+  return prefix + "." + key;
+}
+}  // namespace
+
 TrafficLightRecognitionConfig declare_config(rclcpp::Node * node)
 {
   TrafficLightRecognitionConfig config;
 
-  const auto whole_image_model_path =
+  config.whole_image_detector_model_path =
     node->declare_parameter<std::string>("whole_image_detector.model_path");
-  const auto whole_image_label_path =
+  config.whole_image_detector_label_path =
     node->declare_parameter<std::string>("whole_image_detector.label_path");
-  const auto whole_image_roi_remap_path =
+  config.whole_image_detector_roi_remap_path =
     node->declare_parameter<std::string>("whole_image_detector.roi_remap_path", "");
-  config.whole_image_detector = declare_whole_image_detector_config(
-    node, "whole_image_detector", whole_image_model_path, whole_image_label_path,
-    whole_image_roi_remap_path);
+  config.whole_image_detector_score_threshold = static_cast<float>(
+    node->declare_parameter<double>(joined("whole_image_detector", "score_threshold")));
+  config.whole_image_detector_nms_threshold = static_cast<float>(
+    node->declare_parameter<double>(joined("whole_image_detector", "nms_threshold")));
 
-  config.map_based_detector = declare_map_based_detector_config();
-  config.transform_sampling = declare_transform_sampling_config(node, "map_based_detector");
+  config.min_timestamp_offset =
+    node->declare_parameter<double>(joined("map_based_detector", "min_timestamp_offset"));
+  config.max_timestamp_offset =
+    node->declare_parameter<double>(joined("map_based_detector", "max_timestamp_offset"));
 
-  const auto car_model_path = node->declare_parameter<std::string>("car_classifier.model_path");
-  const auto car_label_path = node->declare_parameter<std::string>("car_classifier.label_path");
-  config.car_classifier = declare_classifier_config(
-    node, "car_classifier", car_model_path, car_label_path,
-    tier4_perception_msgs::msg::TrafficLight::CAR_TRAFFIC_LIGHT);
+  config.car_classifier_model_path =
+    node->declare_parameter<std::string>("car_classifier.model_path");
+  config.car_classifier_label_path =
+    node->declare_parameter<std::string>("car_classifier.label_path");
+  config.car_classifier_over_exposure_threshold =
+    node->declare_parameter<double>(joined("car_classifier", "over_exposure_threshold"));
+  config.car_classifier_under_exposure_threshold =
+    node->declare_parameter<double>(joined("car_classifier", "under_exposure_threshold"));
 
-  const auto pedestrian_model_path =
+  config.pedestrian_classifier_model_path =
     node->declare_parameter<std::string>("pedestrian_classifier.model_path");
-  const auto pedestrian_label_path =
+  config.pedestrian_classifier_label_path =
     node->declare_parameter<std::string>("pedestrian_classifier.label_path");
-  config.pedestrian_classifier = declare_classifier_config(
-    node, "pedestrian_classifier", pedestrian_model_path, pedestrian_label_path,
-    tier4_perception_msgs::msg::TrafficLight::PEDESTRIAN_TRAFFIC_LIGHT);
+  config.pedestrian_classifier_over_exposure_threshold =
+    node->declare_parameter<double>(joined("pedestrian_classifier", "over_exposure_threshold"));
+  config.pedestrian_classifier_under_exposure_threshold =
+    node->declare_parameter<double>(joined("pedestrian_classifier", "under_exposure_threshold"));
 
   return config;
 }
-}  // namespace
 
 TrafficLightRecognitionNode::TrafficLightRecognitionNode(const rclcpp::NodeOptions & node_options)
 : Node("traffic_light_recognition", node_options),
@@ -106,10 +111,7 @@ void TrafficLightRecognitionNode::build_engines_and_shutdown()
 {
   RCLCPP_INFO(get_logger(), "build_only: building TensorRT engines and exiting.");
   try {
-    [[maybe_unused]] autoware::tensorrt_yolox::TrtYoloXDetector whole_image_detector(
-      config_.whole_image_detector);
-    [[maybe_unused]] CNNClassifier car_backend(config_.car_classifier.cnn);
-    [[maybe_unused]] CNNClassifier pedestrian_backend(config_.pedestrian_classifier.cnn);
+    build_engines(config_);
   } catch (const std::exception & e) {
     RCLCPP_ERROR(get_logger(), "failed to build TensorRT engines: %s", e.what());
   }

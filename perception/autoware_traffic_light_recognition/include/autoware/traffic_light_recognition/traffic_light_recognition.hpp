@@ -47,31 +47,47 @@
 namespace autoware::traffic_light
 {
 
-// Configuration for one TrafficLightClassifier + its backend.
-// classifier_type is fixed to CNN for both car and pedestrian
-// (traffic_light_component_test_plan.md §5.6 / this plan §5.1): the only backend config held here
-// is CNNConfig. A future classifier_type would add a variant here.
-struct TrafficLightRecognitionClassifierConfig
-{
-  CNNConfig cnn;
-  // tier4_perception_msgs::msg::TrafficLight::CAR_TRAFFIC_LIGHT or ::PEDESTRIAN_TRAFFIC_LIGHT.
-  uint8_t classify_traffic_light_type = 0;
-  double over_exposure_threshold = 0.85;
-  double under_exposure_threshold = -0.83;
-};
-
 // Configuration for one camera's worth of the whole_image_detection front-end. Decoding the input
 // image is out of scope (plan §0): the input is always an already-decoded sensor_msgs::msg::Image.
+//
+// Deliberately flat, and deliberately holding only the values actually supplied via ROS 2
+// parameters (declare_config(), traffic_light_recognition_node.cpp) or, for the *_model_path /
+// *_label_path fields, launch arguments (plan §5.1 keeps model/label paths out of the versioned
+// param.yaml). Everything else the underlying cores need -- precision, mean/std, gpu_id,
+// classify_traffic_light_type, the map_based_detector calibration-error margins and range/angle
+// cutoffs, the semseg-only yolox fields, ... -- has no per-deployment override in practice, so it
+// is fixed inside TrafficLightRecognition's constructor and build_engines() below (see their
+// definitions in traffic_light_recognition.cpp), not read from a parameter by the Node.
 struct TrafficLightRecognitionConfig
 {
-  autoware::tensorrt_yolox::TrtYoloXDetectorConfig whole_image_detector;
-  TrafficLightMapBasedDetectorConfig map_based_detector;
-  // Read from the same parameter prefix as map_based_detector (min_/max_timestamp_offset drive
-  // the tf sampling run() does before each detection); see declare_transform_sampling_config().
-  TransformSamplingConfig transform_sampling;
-  TrafficLightRecognitionClassifierConfig car_classifier;
-  TrafficLightRecognitionClassifierConfig pedestrian_classifier;
+  std::string whole_image_detector_model_path;
+  std::string whole_image_detector_label_path;
+  std::string whole_image_detector_roi_remap_path;
+  float whole_image_detector_score_threshold = 0.0f;
+  float whole_image_detector_nms_threshold = 0.0f;
+
+  // Drive the map->camera tf sampling run() does before each detection (plan §5.1); read from
+  // the map_based_detector.* parameter prefix even though nothing else in that prefix is a
+  // parameter any more (see declare_config()).
+  double min_timestamp_offset = 0.0;
+  double max_timestamp_offset = 0.0;
+
+  std::string car_classifier_model_path;
+  std::string car_classifier_label_path;
+  double car_classifier_over_exposure_threshold = 0.85;
+  double car_classifier_under_exposure_threshold = -0.83;
+
+  std::string pedestrian_classifier_model_path;
+  std::string pedestrian_classifier_label_path;
+  double pedestrian_classifier_over_exposure_threshold = 0.85;
+  double pedestrian_classifier_under_exposure_threshold = -0.83;
 };
+
+// Builds (and discards) the whole-image detector's and both classifiers' TensorRT engines from
+// `config`, without a map -- used by build_only (plan §4.4), where the Node exits once engine
+// construction succeeds rather than constructing a full TrafficLightRecognition. Throws on
+// failure, same as the underlying engine constructors.
+void build_engines(const TrafficLightRecognitionConfig & config);
 
 // run()'s output: the merged (car + pedestrian) signals and the selected ROIs that produced them.
 struct TrafficLightRecognitionResult
