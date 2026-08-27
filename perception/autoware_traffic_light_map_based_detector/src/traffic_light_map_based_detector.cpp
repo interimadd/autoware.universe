@@ -42,7 +42,7 @@ namespace autoware::traffic_light
 namespace
 {
 std::optional<tf2::Transform> lookup_map_to_frame_transform(
-  tf2::BufferCore & tf_buffer, const std::string & frame_id, const rclcpp::Time & time)
+  const tf2::BufferCore & tf_buffer, const std::string & frame_id, const rclcpp::Time & time)
 {
   try {
     const auto tf2_time_point = tf2::TimePoint(std::chrono::nanoseconds(time.nanoseconds()));
@@ -57,7 +57,7 @@ std::optional<tf2::Transform> lookup_map_to_frame_transform(
 }
 
 std::vector<StampedTransform> fetch_tf_map2camera_samples(
-  tf2::BufferCore & tf_buffer, const std::string & frame_id, const rclcpp::Time & stamp,
+  const tf2::BufferCore & tf_buffer, const std::string & frame_id, const rclcpp::Time & stamp,
   double min_timestamp_offset, double max_timestamp_offset)
 {
   std::vector<StampedTransform> tf_map2camera_samples;
@@ -230,7 +230,7 @@ TrafficLightMapBasedDetectorConfig make_expect_roi_config(
 }
 
 DetectionResult TrafficLightMapBasedDetector::detect(
-  tf2::BufferCore & tf_buffer, const sensor_msgs::msg::CameraInfo & camera_info) const
+  const tf2::BufferCore & tf_buffer, const sensor_msgs::msg::CameraInfo & camera_info) const
 {
   DetectionResult result;
   result.rough_rois.header = camera_info.header;

@@ -103,7 +103,7 @@ public:
    * @return              the detection result
    */
   DetectionResult detect(
-    tf2::BufferCore & tf_buffer, const sensor_msgs::msg::CameraInfo & camera_info) const;
+    const tf2::BufferCore & tf_buffer, const sensor_msgs::msg::CameraInfo & camera_info) const;
 
 private:
   void set_map(const autoware_map_msgs::msg::LaneletMapBin & map_msg);
