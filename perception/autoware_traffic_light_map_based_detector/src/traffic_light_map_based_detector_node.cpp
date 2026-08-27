@@ -14,6 +14,7 @@
 
 #include "traffic_light_map_based_detector_node.hpp"
 
+#include <algorithm>
 #include <memory>
 #include <stdexcept>
 #include <string>
@@ -74,9 +75,12 @@ void MapBasedDetector::camera_info_callback(
   // Wait for the transform at the exact moment to become available. detector_->detect() itself
   // looks up transforms through tf2::BufferCore, which has no wait capability, so the wait is
   // done here via tf2_ros::Buffer instead.
+  const rclcpp::Time latest_required_stamp =
+    rclcpp::Time(input_msg->header.stamp) +
+    rclcpp::Duration::from_seconds(std::max(0.0, detector_config_.max_timestamp_offset));
   std::string error_msg;
   if (!tf_buffer_.canTransform(
-        "map", input_msg->header.frame_id, input_msg->header.stamp,
+        "map", input_msg->header.frame_id, latest_required_stamp,
         rclcpp::Duration::from_seconds(0.2), &error_msg)) {
     RCLCPP_WARN_THROTTLE(
       get_logger(), *get_clock(), 5000,
