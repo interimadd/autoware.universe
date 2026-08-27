@@ -1,0 +1,54 @@
+<?xml version="1.0"?>
+<launch>
+  <!-- Standalone launch for autoware_traffic_light_recognition (single-camera). Intended for
+       single-node bring-up, build_only engine pre-building, and this package's own testing.
+       Production composition into tier4_perception_launch's traffic_light_node_container.launch.py
+       is Phase 5 (out of scope for this package). -->
+
+  <arg name="input/image" default="/sensing/camera/camera6/image_raw"/>
+  <arg name="input/camera_info" default="/sensing/camera/camera6/camera_info"/>
+  <arg name="input/vector_map" default="/map/vector_map"/>
+  <arg name="input/route" default="/planning/mission_planning/route"/>
+
+  <arg name="output/traffic_signals" default="/perception/traffic_light_recognition/camera6/classification/traffic_signals"/>
+  <arg name="output/rois" default="/perception/traffic_light_recognition/camera6/detection/rois"/>
+  <arg name="output/camera_info" default="/perception/traffic_light_recognition/camera6/camera_info"/>
+
+  <arg name="config_path" default="$(find-pkg-share autoware_traffic_light_recognition)/config/traffic_light_recognition.param.yaml"/>
+
+  <arg name="whole_image_detector_model_path" default="$(env HOME)/autoware_data/tensorrt_yolox/yolox_s_traffic_light_detector.onnx"/>
+  <arg name="whole_image_detector_label_path" default="$(env HOME)/autoware_data/tensorrt_yolox/traffic_light_label.txt"/>
+  <arg name="whole_image_detector_roi_remap_path" default="$(env HOME)/autoware_data/tensorrt_yolox/traffic_light_roi_label_remap.csv"/>
+
+  <arg name="car_classifier_model_path" default="$(env HOME)/autoware_data/traffic_light_classifier/traffic_light_classifier_mobilenetv2_batch_1.onnx"/>
+  <arg name="car_classifier_label_path" default="$(env HOME)/autoware_data/traffic_light_classifier/lamp_labels.txt"/>
+
+  <arg name="pedestrian_classifier_model_path" default="$(env HOME)/autoware_data/traffic_light_classifier/traffic_light_classifier_mobilenetv2_batch_1.onnx"/>
+  <arg name="pedestrian_classifier_label_path" default="$(env HOME)/autoware_data/traffic_light_classifier/lamp_labels.txt"/>
+
+  <arg name="build_only" default="false"/>
+
+  <node pkg="autoware_traffic_light_recognition" exec="traffic_light_recognition_node" name="traffic_light_recognition" output="screen">
+    <param from="$(var config_path)"/>
+    <param name="build_only" value="$(var build_only)"/>
+
+    <param name="whole_image_detector.model_path" value="$(var whole_image_detector_model_path)"/>
+    <param name="whole_image_detector.label_path" value="$(var whole_image_detector_label_path)"/>
+    <param name="whole_image_detector.roi_remap_path" value="$(var whole_image_detector_roi_remap_path)"/>
+
+    <param name="car_classifier.model_path" value="$(var car_classifier_model_path)"/>
+    <param name="car_classifier.label_path" value="$(var car_classifier_label_path)"/>
+
+    <param name="pedestrian_classifier.model_path" value="$(var pedestrian_classifier_model_path)"/>
+    <param name="pedestrian_classifier.label_path" value="$(var pedestrian_classifier_label_path)"/>
+
+    <remap from="~/input/image" to="$(var input/image)"/>
+    <remap from="~/input/camera_info" to="$(var input/camera_info)"/>
+    <remap from="~/input/vector_map" to="$(var input/vector_map)"/>
+    <remap from="~/input/route" to="$(var input/route)"/>
+
+    <remap from="~/output/traffic_signals" to="$(var output/traffic_signals)"/>
+    <remap from="~/output/rois" to="$(var output/rois)"/>
+    <remap from="~/output/camera_info" to="$(var output/camera_info)"/>
+  </node>
+</launch>

@@ -1,0 +1,239 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "autoware_traffic_light_recognition parameter",
+  "type": "object",
+  "definitions": {
+    "whole_image_detector": {
+      "type": "object",
+      "properties": {
+        "precision": {
+          "type": "string",
+          "description": "Operation precision to be used on inference. Valid value is one of: [fp32, fp16, int8].",
+          "default": "fp16"
+        },
+        "score_threshold": {
+          "type": "number",
+          "description": "Detection score threshold for the whole-image yolox detector.",
+          "default": 0.35
+        },
+        "nms_threshold": {
+          "type": "number",
+          "description": "NMS threshold for the whole-image yolox detector.",
+          "default": 0.7
+        },
+        "calibration_algorithm": {
+          "type": "string",
+          "description": "Calibration algorithm to be used for quantization when precision==int8. Valid value is one of: [Entropy, (Legacy | Percentile), MinMax].",
+          "default": "Entropy"
+        },
+        "dla_core_id": {
+          "type": "integer",
+          "description": "If positive, the node assigns the inference task to the DLA core with this ID.",
+          "default": -1
+        },
+        "quantize_first_layer": {
+          "type": "boolean",
+          "description": "If true, set the operating precision for the first (input) layer to fp16. Valid only when precision==int8.",
+          "default": false
+        },
+        "quantize_last_layer": {
+          "type": "boolean",
+          "description": "If true, set the operating precision for the last (output) layer to fp16. Valid only when precision==int8.",
+          "default": false
+        },
+        "profile_per_layer": {
+          "type": "boolean",
+          "description": "If true, enable the profiler function. May affect execution speed; recommended for development only.",
+          "default": false
+        },
+        "clip_value": {
+          "type": "number",
+          "description": "If positive, clip each layer's output between [0.0, clip_value]. Valid only when precision==int8 and used instead of a calibration-derived dynamic range.",
+          "default": 6.0
+        },
+        "calibration_image_list_path": {
+          "type": "string",
+          "description": "Path to a file listing image paths used for int8 quantization calibration. Empty disables calibration.",
+          "default": ""
+        },
+        "gpu_id": {
+          "type": "integer",
+          "description": "CUDA device ID to run inference on.",
+          "default": 0
+        }
+      },
+      "required": [
+        "precision",
+        "score_threshold",
+        "nms_threshold",
+        "calibration_algorithm",
+        "dla_core_id",
+        "quantize_first_layer",
+        "quantize_last_layer",
+        "profile_per_layer",
+        "clip_value",
+        "calibration_image_list_path",
+        "gpu_id"
+      ],
+      "additionalProperties": false
+    },
+    "map_based_detector": {
+      "type": "object",
+      "properties": {
+        "max_vibration_pitch": {
+          "type": "number",
+          "description": "Maximum error in pitch direction. If -5~+5, it will be 10.",
+          "default": 0.01745329251
+        },
+        "max_vibration_yaw": {
+          "type": "number",
+          "description": "Maximum error in yaw direction. If -5~+5, it will be 10.",
+          "default": 0.01745329251
+        },
+        "max_vibration_height": {
+          "type": "number",
+          "description": "Maximum error in height direction. If -5~+5, it will be 10.",
+          "default": 0.5
+        },
+        "max_vibration_width": {
+          "type": "number",
+          "description": "Maximum error in width direction. If -5~+5, it will be 10.",
+          "default": 0.5
+        },
+        "max_vibration_depth": {
+          "type": "number",
+          "description": "Maximum error in depth direction. If -5~+5, it will be 10.",
+          "default": 0.5
+        },
+        "max_detection_range": {
+          "type": "number",
+          "description": "Maximum detection range in meters. Must be positive.",
+          "default": 200.0
+        },
+        "car_traffic_light_max_angle_range": {
+          "type": "number",
+          "description": "Maximum angle range for detecting car traffic lights (degrees).",
+          "default": 40.0
+        },
+        "pedestrian_traffic_light_max_angle_range": {
+          "type": "number",
+          "description": "Maximum angle range for detecting pedestrian traffic lights (degrees).",
+          "default": 80.0
+        },
+        "min_timestamp_offset": {
+          "type": "number",
+          "description": "Minimum timestamp offset when searching for the corresponding map->camera tf sample.",
+          "default": -0.3
+        },
+        "max_timestamp_offset": {
+          "type": "number",
+          "description": "Maximum timestamp offset when searching for the corresponding map->camera tf sample.",
+          "default": 0.0
+        }
+      },
+      "required": [
+        "max_vibration_pitch",
+        "max_vibration_yaw",
+        "max_vibration_height",
+        "max_vibration_width",
+        "max_vibration_depth",
+        "max_detection_range",
+        "car_traffic_light_max_angle_range",
+        "pedestrian_traffic_light_max_angle_range",
+        "min_timestamp_offset",
+        "max_timestamp_offset"
+      ],
+      "additionalProperties": false
+    },
+    "classifier": {
+      "type": "object",
+      "properties": {
+        "traffic_light_type": {
+          "type": "integer",
+          "description": "tier4_perception_msgs::msg::TrafficLight::CAR_TRAFFIC_LIGHT (0) or ::PEDESTRIAN_TRAFFIC_LIGHT (1). Selects which ROIs this classifier instance classifies.",
+          "default": 0
+        },
+        "precision": {
+          "type": "string",
+          "description": "Operation precision to be used on inference. Valid value is one of: [fp32, fp16, int8].",
+          "default": "fp16"
+        },
+        "mean": {
+          "type": "array",
+          "description": "Per-channel mean used to normalize the classifier input image (RGB order).",
+          "items": { "type": "number" },
+          "default": [123.675, 116.28, 103.53]
+        },
+        "std": {
+          "type": "array",
+          "description": "Per-channel standard deviation used to normalize the classifier input image (RGB order).",
+          "items": { "type": "number" },
+          "default": [58.395, 57.12, 57.375]
+        },
+        "over_exposure_threshold": {
+          "type": "number",
+          "description": "ROI mean-intensity threshold above which the ROI is treated as over-exposed and classified as UNKNOWN.",
+          "default": 0.85
+        },
+        "under_exposure_threshold": {
+          "type": "number",
+          "description": "ROI mean-intensity threshold below which the ROI is treated as under-exposed and classified as UNKNOWN.",
+          "default": -0.83
+        }
+      },
+      "required": [
+        "traffic_light_type",
+        "precision",
+        "mean",
+        "std",
+        "over_exposure_threshold",
+        "under_exposure_threshold"
+      ],
+      "additionalProperties": false
+    },
+    "traffic_light_recognition": {
+      "type": "object",
+      "properties": {
+        "build_only": {
+          "type": "boolean",
+          "description": "Build the TensorRT engines for the whole-image detector and the classifiers and exit, without waiting for the vector map.",
+          "default": false
+        },
+        "whole_image_detector": {
+          "$ref": "#/definitions/whole_image_detector"
+        },
+        "map_based_detector": {
+          "$ref": "#/definitions/map_based_detector"
+        },
+        "car_classifier": {
+          "$ref": "#/definitions/classifier"
+        },
+        "pedestrian_classifier": {
+          "$ref": "#/definitions/classifier"
+        }
+      },
+      "required": [
+        "build_only",
+        "whole_image_detector",
+        "map_based_detector",
+        "car_classifier",
+        "pedestrian_classifier"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "properties": {
+    "/**": {
+      "type": "object",
+      "properties": {
+        "ros__parameters": {
+          "$ref": "#/definitions/traffic_light_recognition"
+        }
+      },
+      "required": ["ros__parameters"],
+      "additionalProperties": false
+    }
+  },
+  "required": ["/**"],
+  "additionalProperties": false
+}

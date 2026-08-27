@@ -1,0 +1,44 @@
+/**:
+  ros__parameters:
+    build_only: false
+
+    whole_image_detector:
+      precision: "fp16"
+      score_threshold: 0.35
+      nms_threshold: 0.7
+      calibration_algorithm: "Entropy"
+      dla_core_id: -1
+      quantize_first_layer: false
+      quantize_last_layer: false
+      profile_per_layer: false
+      clip_value: 6.0
+      calibration_image_list_path: ""
+      gpu_id: 0
+
+    map_based_detector:
+      max_vibration_pitch: 0.01745329251
+      max_vibration_yaw: 0.01745329251
+      max_vibration_height: 0.5
+      max_vibration_width: 0.5
+      max_vibration_depth: 0.5
+      max_detection_range: 200.0
+      car_traffic_light_max_angle_range: 40.0
+      pedestrian_traffic_light_max_angle_range: 80.0
+      min_timestamp_offset: -0.3
+      max_timestamp_offset: 0.0
+
+    car_classifier:
+      traffic_light_type: 0
+      precision: "fp16"
+      mean: [123.675, 116.28, 103.53]
+      std: [58.395, 57.12, 57.375]
+      over_exposure_threshold: 0.85
+      under_exposure_threshold: -0.83
+
+    pedestrian_classifier:
+      traffic_light_type: 1
+      precision: "fp16"
+      mean: [123.675, 116.28, 103.53]
+      std: [58.395, 57.12, 57.375]
+      over_exposure_threshold: 0.85
+      under_exposure_threshold: -0.83
