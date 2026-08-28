@@ -36,10 +36,12 @@ namespace autoware::traffic_light
 {
 
 // Declares this Node's ROS 2 parameters on `node` and returns the resulting
-// TrafficLightFusionConfig the ROS-free TrafficLightFusion core consumes. The parameter names are
-// production's three back-end Nodes' own names, each moved under the prefix of the component it
-// belongs to (`multi_camera_fusion.` / `arbiter.` / `crosswalk_estimator.`), since one Node now
-// carries all three components' parameters and their flat names would otherwise collide.
+// TrafficLightFusionConfig the ROS-free TrafficLightFusion core consumes. Only `arbiter.*` is
+// exposed as a parameter, under the prefix of the component it belongs to (mirroring
+// TrafficLightArbiterNode's own parameter names) since one Node now carries what used to be
+// three Nodes' worth of configuration and a flat name could collide with a future one. The other
+// two components' values are hardcoded here instead of declared: no deployment has ever needed to
+// change multi_camera_fusion's or crosswalk_estimator's behavior from their fixed defaults.
 // `source_priority` is normalized here exactly as TrafficLightArbiterNode normalizes it, so the
 // core never has to guard against a typo. Exposed as a free function (rather than kept file-local
 // to the .cpp) so test_traffic_light_fusion_params.cpp can exercise it without a full Node.

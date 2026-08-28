@@ -215,11 +215,16 @@ cores need it), so the Node cannot build it at construction time:
 ### Back-end parameters
 
 [config/traffic_light_fusion.param.yaml](config/traffic_light_fusion.param.yaml), validated by
-[schema/traffic_light_fusion.schema.json](schema/traffic_light_fusion.schema.json). Every value is
-the corresponding production Node's own parameter, moved under the prefix of the component it
-belongs to (`multi_camera_fusion.` / `arbiter.` / `crosswalk_estimator.`) since one Node now
-carries all three components' parameters and their flat names would otherwise collide. The
-defaults are the three packages' own defaults.
+[schema/traffic_light_fusion.schema.json](schema/traffic_light_fusion.schema.json). Only
+`arbiter.*` is exposed as a parameter, moved under the `arbiter.` prefix (mirroring
+`TrafficLightArbiterNode`'s own parameter names) since one Node now carries what used to be three
+Nodes' worth of configuration. Its defaults are `autoware_traffic_light_arbiter`'s own defaults.
+
+`multi_camera_fusion.*` and `crosswalk_estimator.*` are not parameters: no deployment has ever
+needed to change either component's behavior from its fixed defaults, so
+`declare_fusion_config()` hardcodes them (`autoware_traffic_light_multi_camera_fusion`'s and
+`autoware_crosswalk_traffic_light_estimator`'s own package defaults, respectively) instead of
+declaring them.
 
 Two production parameters are deliberately dropped: `multi_camera_fusion`'s `approximate_sync`
 (see above), and the `lanelet_map_ptr` field of `MultiCameraFusionConfig`, which is not a

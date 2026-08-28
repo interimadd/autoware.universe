@@ -1,27 +1,15 @@
-# Package defaults for the back-end (fusion) Node. Values mirror the three production Nodes'
-# own package defaults (autoware_traffic_light_multi_camera_fusion, autoware_traffic_light_arbiter,
-# autoware_crosswalk_traffic_light_estimator), each moved under the prefix of the component it
-# belongs to. `camera_namespaces` is deliberately not here: which cameras feed the back-end is a
-# per-deployment fact, injected by the launch file, the same way the front-end's model/label paths
-# are.
+# Package defaults for the back-end (fusion) Node. `arbiter` mirrors
+# autoware_traffic_light_arbiter's own package defaults, moved under the `arbiter.` prefix.
+# multi_camera_fusion and crosswalk_estimator are not exposed as parameters: no deployment has ever
+# needed to change them from their fixed values, so declare_fusion_config() hardcodes them instead
+# (see traffic_light_fusion_node.cpp). `camera_namespaces` is deliberately not here either: which
+# cameras feed the back-end is a per-deployment fact, injected by the launch file, the same way the
+# front-end's model/label paths are.
 /**:
   ros__parameters:
-    multi_camera_fusion:
-      message_lifespan: 0.09
-      prior_log_odds: 0.0
-      signal_consistency_check:
-        enable: false
-        publish_partial_matched_signal: false
-
     arbiter:
       external_delay_tolerance: 5.0
       external_time_tolerance: 5.0
       perception_time_tolerance: 1.0
       source_priority: "confidence"  # Options: "external", "perception", "confidence"
       enable_signal_matching: false
-
-    crosswalk_estimator:
-      use_last_detect_color: true
-      use_pedestrian_signal_detect: true
-      last_detect_color_hold_time: 2.0
-      last_colors_hold_time: 1.0

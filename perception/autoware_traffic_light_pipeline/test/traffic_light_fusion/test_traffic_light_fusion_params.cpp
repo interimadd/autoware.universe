@@ -15,13 +15,14 @@
 //
 // Unit test for declare_fusion_config(): reads the package's own default config yaml through a
 // real rclcpp::Node and checks that every value lands in the field of TrafficLightFusionConfig
-// that the corresponding production Node's parameter feeds today. No GPU and no model files are
-// involved -- none of the three back-end cores touch TensorRT -- and declare_fusion_config()
-// never constructs a core, so this test is cheap and always runs.
+// that the corresponding production Node's parameter (or, for multi_camera_fusion and
+// crosswalk_estimator, hardcoded fixed value) feeds today. No GPU and no model files are involved
+// -- none of the three back-end cores touch TensorRT -- and declare_fusion_config() never
+// constructs a core, so this test is cheap and always runs.
 //
-// The point of the test is the three prefixes (multi_camera_fusion. / arbiter. /
-// crosswalk_estimator.): a bug that read the wrong subtree would silently give one component
-// another component's value.
+// arbiter.* is the only prefix actually read from the node's parameters; multi_camera_fusion.*
+// and crosswalk_estimator.* are fixed values declare_fusion_config() hardcodes, pinned here so a
+// change to those fixed values is visible in the test.
 //
 
 #include "../../src/traffic_light_fusion/traffic_light_fusion_node.hpp"
@@ -90,25 +91,25 @@ TEST(FusionParamsTest, ConfigMatchesDefaultYaml)
   EXPECT_DOUBLE_EQ(config.crosswalk_estimator.flashing_detection.last_colors_hold_time, 1.0);
 }
 
-// Each prefix must be read from its own subtree: this pins the values apart so a copy-paste bug
-// between the three prefixes shows up as a wrong value rather than a coincidental match.
-TEST(FusionParamsTest, EachPrefixIsReadFromItsOwnSubtree)
+// arbiter.* must be read from its own subtree, independent of the fixed values
+// multi_camera_fusion and crosswalk_estimator get: this pins them apart so a bug that
+// accidentally wired an override into one of the fixed fields would show up as a wrong value
+// rather than a coincidental match.
+TEST(FusionParamsTest, ArbiterIsReadFromItsOwnSubtreeIndependentOfFixedValues)
 {
   // Arrange
   auto node = make_test_node(
-    "test_traffic_light_fusion_params_prefixes",
-    {"multi_camera_fusion.message_lifespan:=0.11", "arbiter.perception_time_tolerance:=2.5",
-     "crosswalk_estimator.last_detect_color_hold_time:=3.5",
-     "crosswalk_estimator.last_colors_hold_time:=4.5"});
+    "test_traffic_light_fusion_params_prefixes", {"arbiter.perception_time_tolerance:=2.5"});
 
   // Act
   const auto config = tl::declare_fusion_config(node.get());
 
   // Assert
-  EXPECT_DOUBLE_EQ(config.multi_camera_fusion.message_lifespan, 0.11);
   EXPECT_DOUBLE_EQ(config.arbiter.perception_time_tolerance, 2.5);
-  EXPECT_DOUBLE_EQ(config.crosswalk_estimator.last_detect_color_hold_time, 3.5);
-  EXPECT_DOUBLE_EQ(config.crosswalk_estimator.flashing_detection.last_colors_hold_time, 4.5);
+  // multi_camera_fusion / crosswalk_estimator are fixed values, unaffected by any override.
+  EXPECT_DOUBLE_EQ(config.multi_camera_fusion.message_lifespan, 0.09);
+  EXPECT_DOUBLE_EQ(config.crosswalk_estimator.last_detect_color_hold_time, 2.0);
+  EXPECT_DOUBLE_EQ(config.crosswalk_estimator.flashing_detection.last_colors_hold_time, 1.0);
 }
 
 // TrafficLightArbiter treats every unrecognized source_priority as "confidence" silently;

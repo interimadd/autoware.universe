@@ -26,14 +26,14 @@ TrafficLightFusionConfig declare_fusion_config(rclcpp::Node * node)
 {
   TrafficLightFusionConfig config;
 
-  config.multi_camera_fusion.message_lifespan =
-    node->declare_parameter<double>("multi_camera_fusion.message_lifespan");
-  config.multi_camera_fusion.prior_log_odds =
-    node->declare_parameter<double>("multi_camera_fusion.prior_log_odds");
-  config.multi_camera_fusion.use_signal_consistency_check =
-    node->declare_parameter<bool>("multi_camera_fusion.signal_consistency_check.enable");
-  config.multi_camera_fusion.publish_partial_matched_signal = node->declare_parameter<bool>(
-    "multi_camera_fusion.signal_consistency_check.publish_partial_matched_signal");
+  // Fixed values, not parameters: no deployment has ever needed to change multi_camera_fusion's
+  // behavior from these, so they are hardcoded here rather than exposed in
+  // traffic_light_fusion.param.yaml. Values mirror autoware_traffic_light_multi_camera_fusion's
+  // own package defaults.
+  config.multi_camera_fusion.message_lifespan = 0.09;
+  config.multi_camera_fusion.prior_log_odds = 0.0;
+  config.multi_camera_fusion.use_signal_consistency_check = false;
+  config.multi_camera_fusion.publish_partial_matched_signal = false;
   // lanelet_map_ptr is deliberately left null: TrafficLightFusion's constructor fills it in from
   // the LaneletMapBin the Node receives on ~/input/vector_map.
 
@@ -59,14 +59,12 @@ TrafficLightFusionConfig declare_fusion_config(rclcpp::Node * node)
   }
   config.arbiter.source_priority = source_priority;
 
-  config.crosswalk_estimator.use_last_detect_color =
-    node->declare_parameter<bool>("crosswalk_estimator.use_last_detect_color");
-  config.crosswalk_estimator.use_pedestrian_signal_detect =
-    node->declare_parameter<bool>("crosswalk_estimator.use_pedestrian_signal_detect");
-  config.crosswalk_estimator.last_detect_color_hold_time =
-    node->declare_parameter<double>("crosswalk_estimator.last_detect_color_hold_time");
-  config.crosswalk_estimator.flashing_detection.last_colors_hold_time =
-    node->declare_parameter<double>("crosswalk_estimator.last_colors_hold_time");
+  // Fixed values, not parameters: these are autoware_crosswalk_traffic_light_estimator's own
+  // package defaults, and no deployment has ever needed to change them.
+  config.crosswalk_estimator.use_last_detect_color = true;
+  config.crosswalk_estimator.use_pedestrian_signal_detect = true;
+  config.crosswalk_estimator.last_detect_color_hold_time = 2.0;
+  config.crosswalk_estimator.flashing_detection.last_colors_hold_time = 1.0;
 
   return config;
 }

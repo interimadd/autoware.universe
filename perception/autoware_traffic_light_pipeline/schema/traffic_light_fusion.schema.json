@@ -3,43 +3,6 @@
   "title": "autoware_traffic_light_pipeline traffic_light_fusion parameter",
   "type": "object",
   "definitions": {
-    "signal_consistency_check": {
-      "type": "object",
-      "properties": {
-        "enable": {
-          "type": "boolean",
-          "description": "Check the consistency of the signals fused from multiple cameras.",
-          "default": false
-        },
-        "publish_partial_matched_signal": {
-          "type": "boolean",
-          "description": "Publish a signal even when only part of the group's traffic lights agree.",
-          "default": false
-        }
-      },
-      "required": ["enable", "publish_partial_matched_signal"],
-      "additionalProperties": false
-    },
-    "multi_camera_fusion": {
-      "type": "object",
-      "properties": {
-        "message_lifespan": {
-          "type": "number",
-          "description": "An input message is used for fusion while its stamp is within this many seconds of the latest received message; older ones are discarded.",
-          "default": 0.09
-        },
-        "prior_log_odds": {
-          "type": "number",
-          "description": "Prior log-odds for a traffic light state.",
-          "default": 0.0
-        },
-        "signal_consistency_check": {
-          "$ref": "#/definitions/signal_consistency_check"
-        }
-      },
-      "required": ["message_lifespan", "prior_log_odds", "signal_consistency_check"],
-      "additionalProperties": false
-    },
     "arbiter": {
       "type": "object",
       "properties": {
@@ -79,52 +42,14 @@
       ],
       "additionalProperties": false
     },
-    "crosswalk_estimator": {
-      "type": "object",
-      "properties": {
-        "use_last_detect_color": {
-          "type": "boolean",
-          "description": "Hold the last detected color of a vehicle signal for last_detect_color_hold_time seconds when it becomes UNKNOWN.",
-          "default": true
-        },
-        "use_pedestrian_signal_detect": {
-          "type": "boolean",
-          "description": "Use the detected pedestrian signals instead of estimating them from the vehicle signals.",
-          "default": true
-        },
-        "last_detect_color_hold_time": {
-          "type": "number",
-          "description": "How long, in seconds, the last detected color is held.",
-          "default": 2.0
-        },
-        "last_colors_hold_time": {
-          "type": "number",
-          "description": "How long, in seconds, the signal color history used for flashing detection is kept.",
-          "default": 1.0
-        }
-      },
-      "required": [
-        "use_last_detect_color",
-        "use_pedestrian_signal_detect",
-        "last_detect_color_hold_time",
-        "last_colors_hold_time"
-      ],
-      "additionalProperties": false
-    },
     "traffic_light_fusion": {
       "type": "object",
       "properties": {
-        "multi_camera_fusion": {
-          "$ref": "#/definitions/multi_camera_fusion"
-        },
         "arbiter": {
           "$ref": "#/definitions/arbiter"
-        },
-        "crosswalk_estimator": {
-          "$ref": "#/definitions/crosswalk_estimator"
         }
       },
-      "required": ["multi_camera_fusion", "arbiter", "crosswalk_estimator"],
+      "required": ["arbiter"],
       "additionalProperties": false
     }
   },
