@@ -148,7 +148,7 @@ ClassifierConfig make_car_classifier_config(const TrafficLightRecognitionConfig 
 {
   return make_classifier_config(
     config.car_classifier_model_path, config.car_classifier_label_path,
-    config.car_classifier_over_exposure_threshold, config.car_classifier_under_exposure_threshold,
+    config.over_exposure_threshold, config.under_exposure_threshold,
     tier4_perception_msgs::msg::TrafficLight::CAR_TRAFFIC_LIGHT);
 }
 
@@ -156,8 +156,7 @@ ClassifierConfig make_pedestrian_classifier_config(const TrafficLightRecognition
 {
   return make_classifier_config(
     config.pedestrian_classifier_model_path, config.pedestrian_classifier_label_path,
-    config.pedestrian_classifier_over_exposure_threshold,
-    config.pedestrian_classifier_under_exposure_threshold,
+    config.over_exposure_threshold, config.under_exposure_threshold,
     tier4_perception_msgs::msg::TrafficLight::PEDESTRIAN_TRAFFIC_LIGHT);
 }
 

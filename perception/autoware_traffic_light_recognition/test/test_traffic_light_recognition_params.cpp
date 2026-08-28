@@ -96,15 +96,16 @@ TEST(ParamsTest, ConfigMatchesDefaultYamlAndInjectedPaths)
   // Assert -- car_classifier.* / pedestrian_classifier.*, read from distinct prefixes.
   EXPECT_EQ(config.car_classifier_model_path, "/tmp/does_not_need_to_exist_car.onnx");
   EXPECT_EQ(config.car_classifier_label_path, "/tmp/does_not_need_to_exist_car_labels.txt");
-  EXPECT_DOUBLE_EQ(config.car_classifier_over_exposure_threshold, 0.85);
-  EXPECT_DOUBLE_EQ(config.car_classifier_under_exposure_threshold, -0.83);
 
   EXPECT_EQ(config.pedestrian_classifier_model_path, "/tmp/does_not_need_to_exist_ped.onnx");
   EXPECT_EQ(config.pedestrian_classifier_label_path, "/tmp/does_not_need_to_exist_ped_labels.txt");
-  EXPECT_DOUBLE_EQ(config.pedestrian_classifier_over_exposure_threshold, 0.85);
-  EXPECT_DOUBLE_EQ(config.pedestrian_classifier_under_exposure_threshold, -0.83);
 
   EXPECT_NE(config.car_classifier_model_path, config.pedestrian_classifier_model_path);
+
+  // Assert -- over_exposure_threshold / under_exposure_threshold, shared by both classifiers
+  // (top-level, not under either classifier's prefix).
+  EXPECT_DOUBLE_EQ(config.over_exposure_threshold, 0.85);
+  EXPECT_DOUBLE_EQ(config.under_exposure_threshold, -0.83);
 }
 
 }  // namespace

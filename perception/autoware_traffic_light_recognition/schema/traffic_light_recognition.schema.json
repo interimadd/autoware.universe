@@ -42,12 +42,12 @@
       "properties": {
         "over_exposure_threshold": {
           "type": "number",
-          "description": "ROI mean-intensity threshold above which the ROI is treated as over-exposed and classified as UNKNOWN.",
+          "description": "ROI mean-intensity threshold above which the ROI is treated as over-exposed and classified as UNKNOWN. Shared by car_classifier and pedestrian_classifier: both classify ROIs cropped from the same camera image, so this is a property of the camera, not of either classifier individually.",
           "default": 0.85
         },
         "under_exposure_threshold": {
           "type": "number",
-          "description": "ROI mean-intensity threshold below which the ROI is treated as under-exposed and classified as UNKNOWN.",
+          "description": "ROI mean-intensity threshold below which the ROI is treated as under-exposed and classified as UNKNOWN. Shared by car_classifier and pedestrian_classifier for the same reason as over_exposure_threshold.",
           "default": -0.83
         }
       },
@@ -68,20 +68,11 @@
         "map_based_detector": {
           "$ref": "#/definitions/map_based_detector"
         },
-        "car_classifier": {
-          "$ref": "#/definitions/classifier"
-        },
-        "pedestrian_classifier": {
+        "classifier": {
           "$ref": "#/definitions/classifier"
         }
       },
-      "required": [
-        "build_only",
-        "whole_image_detector",
-        "map_based_detector",
-        "car_classifier",
-        "pedestrian_classifier"
-      ],
+      "required": ["build_only", "whole_image_detector", "map_based_detector", "classifier"],
       "additionalProperties": false
     }
   },

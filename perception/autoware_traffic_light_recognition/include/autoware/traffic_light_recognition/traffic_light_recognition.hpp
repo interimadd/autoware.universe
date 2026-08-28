@@ -74,13 +74,12 @@ struct TrafficLightRecognitionConfig
 
   std::string car_classifier_model_path;
   std::string car_classifier_label_path;
-  double car_classifier_over_exposure_threshold = 0.85;
-  double car_classifier_under_exposure_threshold = -0.83;
 
   std::string pedestrian_classifier_model_path;
   std::string pedestrian_classifier_label_path;
-  double pedestrian_classifier_over_exposure_threshold = 0.85;
-  double pedestrian_classifier_under_exposure_threshold = -0.83;
+
+  double over_exposure_threshold = 0.85;
+  double under_exposure_threshold = -0.83;
 };
 
 // Builds (and discards) the whole-image detector's and both classifiers' TensorRT engines from

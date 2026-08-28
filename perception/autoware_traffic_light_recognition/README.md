@@ -96,6 +96,16 @@ Several things are true of this package's parameter surface, all deliberate:
   (`CAR_TRAFFIC_LIGHT` vs. `PEDESTRIAN_TRAFFIC_LIGHT`) is fixed by which classifier the value is
   built for, not by anything read from the parameter tree, so a parameter would only ever restate
   that choice.
+- **`over_exposure_threshold` / `under_exposure_threshold` live under a single shared
+  `classifier` prefix, not `car_classifier` / `pedestrian_classifier`.** `car_classifier` and
+  `pedestrian_classifier` classify ROIs cropped from the same camera image at the same timestamp,
+  so exposure -- a property of the camera/ISP, not of which traffic light type a given ROI
+  happens to be -- is the same for both. Unlike `mean` / `std` (a model property, fixed above) or
+  the map_based_detector cutoffs (no established per-deployment override), this one plausibly
+  does vary between camera models, so it stays a parameter; it just no longer needs to be
+  declared and set identically under two different prefixes. `classifier` is its own top-level
+  section (like `whole_image_detector` / `map_based_detector`) purely to keep the config file's
+  nesting depth consistent, even though only this one classifier-shaped block exists.
 - **Only `map_based_detector.min_timestamp_offset` / `max_timestamp_offset` are parameters.** The
   calibration-error margins (`max_vibration_pitch` / `max_vibration_yaw` / `max_vibration_height`
   / `max_vibration_width` / `max_vibration_depth`) and the range/angle cutoffs

@@ -196,13 +196,12 @@ protected:
 
     config.car_classifier_model_path = classifier_model;
     config.car_classifier_label_path = classifier_label;
-    config.car_classifier_over_exposure_threshold = 0.85;
-    config.car_classifier_under_exposure_threshold = -0.83;
 
     config.pedestrian_classifier_model_path = classifier_model;
     config.pedestrian_classifier_label_path = classifier_label;
-    config.pedestrian_classifier_over_exposure_threshold = 0.85;
-    config.pedestrian_classifier_under_exposure_threshold = -0.83;
+
+    config.over_exposure_threshold = 0.85;
+    config.under_exposure_threshold = -0.83;
 
     config_ = std::move(config);
     tf_buffer_ = make_tf_buffer_with_camera_transform();

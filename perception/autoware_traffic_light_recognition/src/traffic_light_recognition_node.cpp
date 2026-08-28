@@ -52,19 +52,16 @@ TrafficLightRecognitionConfig declare_config(rclcpp::Node * node)
     node->declare_parameter<std::string>("car_classifier.model_path");
   config.car_classifier_label_path =
     node->declare_parameter<std::string>("car_classifier.label_path");
-  config.car_classifier_over_exposure_threshold =
-    node->declare_parameter<double>(joined("car_classifier", "over_exposure_threshold"));
-  config.car_classifier_under_exposure_threshold =
-    node->declare_parameter<double>(joined("car_classifier", "under_exposure_threshold"));
 
   config.pedestrian_classifier_model_path =
     node->declare_parameter<std::string>("pedestrian_classifier.model_path");
   config.pedestrian_classifier_label_path =
     node->declare_parameter<std::string>("pedestrian_classifier.label_path");
-  config.pedestrian_classifier_over_exposure_threshold =
-    node->declare_parameter<double>(joined("pedestrian_classifier", "over_exposure_threshold"));
-  config.pedestrian_classifier_under_exposure_threshold =
-    node->declare_parameter<double>(joined("pedestrian_classifier", "under_exposure_threshold"));
+
+  config.over_exposure_threshold =
+    node->declare_parameter<double>(joined("classifier", "over_exposure_threshold"));
+  config.under_exposure_threshold =
+    node->declare_parameter<double>(joined("classifier", "under_exposure_threshold"));
 
   return config;
 }

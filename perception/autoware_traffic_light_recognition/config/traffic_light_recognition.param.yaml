@@ -10,10 +10,6 @@
       min_timestamp_offset: -0.3
       max_timestamp_offset: 0.0
 
-    car_classifier:
-      over_exposure_threshold: 0.85
-      under_exposure_threshold: -0.83
-
-    pedestrian_classifier:
+    classifier:
       over_exposure_threshold: 0.85
       under_exposure_threshold: -0.83
