@@ -36,7 +36,7 @@
 //   <dataset>/map/lanelet2_map.osm
 //   <dataset>/map/map_projector_info.yaml
 
-#include "traffic_light_recognition.hpp"
+#include "traffic_light_recognition/traffic_light_recognition.hpp"
 
 #include <autoware/image_transport_decompressor/image_decompression.hpp>
 #include <autoware/lanelet2_utils/conversion.hpp>

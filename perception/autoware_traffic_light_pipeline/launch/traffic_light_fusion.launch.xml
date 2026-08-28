@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<launch>
+  <!-- Standalone launch for the back-end (fusion) Node of autoware_traffic_light_pipeline.
+       Intended for single-node bring-up and this package's own testing; production composition
+       into tier4_perception_launch's traffic_light_node_container.launch.py is a separate step. -->
+
+  <!-- Per-camera input topics are derived from these namespaces, exactly as
+       traffic_light_multi_camera_fusion does: <ns>/camera_info, <ns>/detection/rois,
+       <ns>/classification/traffic_signals. -->
+  <arg name="camera_namespaces" default="[camera6, camera7]"/>
+
+  <arg name="input/vector_map" default="/map/vector_map"/>
+  <arg name="output/traffic_signals" default="/perception/traffic_light_recognition/traffic_signals"/>
+
+  <arg name="config_path" default="$(find-pkg-share autoware_traffic_light_pipeline)/config/traffic_light_fusion.param.yaml"/>
+
+  <node pkg="autoware_traffic_light_pipeline" exec="traffic_light_fusion_node" name="traffic_light_fusion" namespace="/perception/traffic_light_recognition" output="screen">
+    <param from="$(var config_path)"/>
+    <param name="camera_namespaces" value="$(var camera_namespaces)"/>
+
+    <remap from="~/input/vector_map" to="$(var input/vector_map)"/>
+    <remap from="~/output/traffic_signals" to="$(var output/traffic_signals)"/>
+  </node>
+</launch>

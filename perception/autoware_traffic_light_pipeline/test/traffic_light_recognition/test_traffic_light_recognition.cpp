@@ -28,7 +28,7 @@
 // from, so it is not re-verified here.
 //
 
-#include "../src/traffic_light_recognition.hpp"
+#include "../../src/traffic_light_recognition/traffic_light_recognition.hpp"
 
 #include <autoware/cuda_utils/cuda_gtest_utils.hpp>
 #include <autoware/lanelet2_utils/conversion.hpp>

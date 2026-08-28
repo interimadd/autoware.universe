@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <launch>
-  <!-- Standalone launch for autoware_traffic_light_recognition (single-camera). Intended for
+  <!-- Standalone launch for autoware_traffic_light_pipeline (single-camera). Intended for
        single-node bring-up, build_only engine pre-building, and this package's own testing.
        Production composition into tier4_perception_launch's traffic_light_node_container.launch.py
        is Phase 5 (out of scope for this package). -->
@@ -14,7 +14,7 @@
   <arg name="output/rois" default="/perception/traffic_light_recognition/camera6/detection/rois"/>
   <arg name="output/camera_info" default="/perception/traffic_light_recognition/camera6/camera_info"/>
 
-  <arg name="config_path" default="$(find-pkg-share autoware_traffic_light_recognition)/config/traffic_light_recognition.param.yaml"/>
+  <arg name="config_path" default="$(find-pkg-share autoware_traffic_light_pipeline)/config/traffic_light_recognition.param.yaml"/>
 
   <arg name="whole_image_detector_model_path" default="$(env HOME)/autoware_data/tensorrt_yolox/yolox_s_traffic_light_detector.onnx"/>
   <arg name="whole_image_detector_label_path" default="$(env HOME)/autoware_data/tensorrt_yolox/traffic_light_label.txt"/>
@@ -28,7 +28,7 @@
 
   <arg name="build_only" default="false"/>
 
-  <node pkg="autoware_traffic_light_recognition" exec="traffic_light_recognition_node" name="traffic_light_recognition" output="screen">
+  <node pkg="autoware_traffic_light_pipeline" exec="traffic_light_recognition_node" name="traffic_light_recognition" output="screen">
     <param from="$(var config_path)"/>
     <param name="build_only" value="$(var build_only)"/>
 

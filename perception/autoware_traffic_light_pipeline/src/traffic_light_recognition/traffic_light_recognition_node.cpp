@@ -28,7 +28,7 @@ std::string joined(const std::string & prefix, const std::string & key)
 }
 }  // namespace
 
-TrafficLightRecognitionConfig declare_config(rclcpp::Node * node)
+TrafficLightRecognitionConfig declare_recognition_config(rclcpp::Node * node)
 {
   TrafficLightRecognitionConfig config;
 
@@ -68,7 +68,7 @@ TrafficLightRecognitionConfig declare_config(rclcpp::Node * node)
 
 TrafficLightRecognitionNode::TrafficLightRecognitionNode(const rclcpp::NodeOptions & node_options)
 : Node("traffic_light_recognition", node_options),
-  config_(declare_config(this)),
+  config_(declare_recognition_config(this)),
   tf_buffer_(this->get_clock()),
   tf_listener_(tf_buffer_)
 {

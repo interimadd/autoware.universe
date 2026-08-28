@@ -24,7 +24,7 @@
 // additionally gated in CMakeLists.txt behind TRT_AVAIL AND CUDA_AVAIL.
 //
 
-#include "../src/traffic_light_recognition_node.hpp"
+#include "../../src/traffic_light_recognition/traffic_light_recognition_node.hpp"
 
 #include <autoware/cuda_utils/cuda_gtest_utils.hpp>
 #include <autoware/lanelet2_utils/conversion.hpp>

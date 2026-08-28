@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TRAFFIC_LIGHT_RECOGNITION_NODE_HPP_
-#define TRAFFIC_LIGHT_RECOGNITION_NODE_HPP_
+#ifndef TRAFFIC_LIGHT_RECOGNITION__TRAFFIC_LIGHT_RECOGNITION_NODE_HPP_
+#define TRAFFIC_LIGHT_RECOGNITION__TRAFFIC_LIGHT_RECOGNITION_NODE_HPP_
 
 #include "traffic_light_recognition.hpp"
 
@@ -51,7 +51,7 @@ namespace autoware::traffic_light
 // model_path / label_path / roi_remap_path (per detector/classifier) are declared here as plain
 // top-level parameters, not part of the versioned config file (plan §5.1), so a launch file can
 // inject them without the config file ever hard-coding a $HOME/autoware_data path.
-TrafficLightRecognitionConfig declare_config(rclcpp::Node * node);
+TrafficLightRecognitionConfig declare_recognition_config(rclcpp::Node * node);
 
 // Node adapter around TrafficLightRecognition (plan §4). Composes, for one camera, everything
 // production's traffic_light_node_container.launch.py currently spreads across 5 Nodes
@@ -102,4 +102,4 @@ private:
 
 }  // namespace autoware::traffic_light
 
-#endif  // TRAFFIC_LIGHT_RECOGNITION_NODE_HPP_
+#endif  // TRAFFIC_LIGHT_RECOGNITION__TRAFFIC_LIGHT_RECOGNITION_NODE_HPP_

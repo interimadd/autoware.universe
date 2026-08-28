@@ -13,12 +13,12 @@
 // limitations under the License.
 
 //
-// Tests for declare_config() (plan §5.3, §6): reads the package's own default
+// Tests for declare_recognition_config() (plan §5.3, §6): reads the package's own default
 // config/traffic_light_recognition.param.yaml through an rclcpp::Node the same way the production
 // Node does, and checks the resulting flat TrafficLightRecognitionConfig matches what that yaml
 // (plus the launch-injected model/label paths) says. No GPU / TensorRT engine is built here:
-// declare_config() only declares parameters, it never touches a model or label file itself --
-// that (and every fixed, non-parameter value) is TrafficLightRecognition's job
+// declare_recognition_config() only declares parameters, it never touches a model or label file
+// itself -- that (and every fixed, non-parameter value) is TrafficLightRecognition's job
 // (traffic_light_recognition.cpp), exercised by test_traffic_light_recognition.cpp instead.
 //
 // The important assertion here is that car_classifier / pedestrian_classifier are read from
@@ -26,7 +26,7 @@
 // car_classifier_model_path / pedestrian_classifier_model_path collapse to the same value.
 //
 
-#include "../src/traffic_light_recognition_node.hpp"
+#include "../../src/traffic_light_recognition/traffic_light_recognition_node.hpp"
 
 #include <ament_index_cpp/get_package_share_directory.hpp>
 #include <rclcpp/rclcpp.hpp>
@@ -43,13 +43,13 @@ namespace tl = autoware::traffic_light;
 
 std::string default_config_path()
 {
-  return ament_index_cpp::get_package_share_directory("autoware_traffic_light_recognition") +
+  return ament_index_cpp::get_package_share_directory("autoware_traffic_light_pipeline") +
          "/config/traffic_light_recognition.param.yaml";
 }
 
 // Builds a node with the package's default config.yaml plus the launch-injected model/label
-// parameters that config.yaml deliberately omits (plan §5.1). declare_config() never opens these
-// paths itself, so arbitrary (possibly non-existent) paths are fine.
+// parameters that config.yaml deliberately omits (plan §5.1). declare_recognition_config() never
+// opens these paths itself, so arbitrary (possibly non-existent) paths are fine.
 std::shared_ptr<rclcpp::Node> make_test_node()
 {
   std::vector<std::string> args{
@@ -80,7 +80,7 @@ TEST(ParamsTest, ConfigMatchesDefaultYamlAndInjectedPaths)
   auto node = make_test_node();
 
   // Act
-  const auto config = tl::declare_config(node.get());
+  const auto config = tl::declare_recognition_config(node.get());
 
   // Assert -- whole_image_detector.*
   EXPECT_EQ(config.whole_image_detector_model_path, "/tmp/does_not_need_to_exist.onnx");

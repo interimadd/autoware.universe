@@ -5,7 +5,7 @@
 # <dataset>/map/map_projector_info.yaml.
 #
 # Run with:
-#   ros2 run autoware_traffic_light_recognition run_traffic_light_recognition_evaluation \
+#   ros2 run autoware_traffic_light_pipeline run_traffic_light_recognition_evaluation \
 #     --config <this file> \
 #     --dataset <t4dataset dir> \
 #     --output-bag result/output_bag

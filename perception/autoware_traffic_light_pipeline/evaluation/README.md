@@ -15,8 +15,8 @@ t4dataset のパスを指定すると、`TrafficLightRecognition::run()`（本�
 ## 使い方
 
 ```bash
-ros2 run autoware_traffic_light_recognition run_traffic_light_recognition_evaluation \
-  --config $(ros2 pkg prefix --share autoware_traffic_light_recognition)/evaluation/config/x2_v4.4.evaluation.yaml \
+ros2 run autoware_traffic_light_pipeline run_traffic_light_recognition_evaluation \
+  --config $(ros2 pkg prefix --share autoware_traffic_light_pipeline)/evaluation/config/x2_v4.4.evaluation.yaml \
   --dataset <t4dataset のパス> \
   --output-bag result/output_bag
 ```
