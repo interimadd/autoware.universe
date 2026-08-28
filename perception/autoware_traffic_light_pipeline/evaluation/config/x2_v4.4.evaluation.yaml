@@ -41,7 +41,8 @@ recognition:
   whole_image_detector:
     model_path: ~/autoware_data/tensorrt_yolox/yolox_s_car_ped_tl_detector_960_960_batch_1.onnx
     label_path: ~/autoware_data/tensorrt_yolox/car_ped_tl_detector_labels.txt
-    roi_remap_path: ~/work/component_test/autoware/install/autoware_tensorrt_yolox/share/autoware_tensorrt_yolox/config/traffic_light_roi_label_remap.csv
+    # roi_remap_path is omitted: it defaults to autoware_tensorrt_yolox's own installed
+    # traffic_light_roi_label_remap.csv (see run_traffic_light_recognition_evaluation.cpp).
     score_threshold: 0.35
     nms_threshold: 0.7
 

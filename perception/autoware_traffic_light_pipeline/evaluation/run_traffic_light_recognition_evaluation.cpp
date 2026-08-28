@@ -38,6 +38,7 @@
 
 #include "traffic_light_recognition/traffic_light_recognition.hpp"
 
+#include <ament_index_cpp/get_package_share_directory.hpp>
 #include <autoware/image_transport_decompressor/image_decompression.hpp>
 #include <autoware/lanelet2_utils/conversion.hpp>
 #include <autoware/map_projection_loader/map_projection_loader.hpp>
@@ -146,6 +147,17 @@ std::string require_path(const YAML::Node & node, const std::string & key)
   return expand_user_path(require(node, key).as<std::string>());
 }
 
+// The whole-image detector ships this remap csv as installed package data, so unlike model_path /
+// label_path (which live under $HOME/autoware_data and vary per user) it does not belong in the
+// evaluation config at all: leaving roi_remap_path unset (or empty) resolves it from
+// autoware_tensorrt_yolox's own share directory, the same file its production launch file defaults
+// to via $(find-pkg-share autoware_tensorrt_yolox).
+std::string default_roi_remap_path()
+{
+  return ament_index_cpp::get_package_share_directory("autoware_tensorrt_yolox") +
+         "/config/traffic_light_roi_label_remap.csv";
+}
+
 CameraConfig parse_camera(const YAML::Node & node)
 {
   CameraConfig camera;
@@ -177,9 +189,11 @@ TrafficLightRecognitionConfig parse_recognition(const YAML::Node & node)
   const auto detector = require(node, "whole_image_detector");
   config.whole_image_detector_model_path = require_path(detector, "model_path");
   config.whole_image_detector_label_path = require_path(detector, "label_path");
+  const auto roi_remap_path_node = detector["roi_remap_path"];
   config.whole_image_detector_roi_remap_path =
-    detector["roi_remap_path"] ? expand_user_path(detector["roi_remap_path"].as<std::string>())
-                               : std::string();
+    roi_remap_path_node && !roi_remap_path_node.as<std::string>().empty()
+      ? expand_user_path(roi_remap_path_node.as<std::string>())
+      : default_roi_remap_path();
   config.whole_image_detector_score_threshold = require(detector, "score_threshold").as<float>();
   config.whole_image_detector_nms_threshold = require(detector, "nms_threshold").as<float>();
 
