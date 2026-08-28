@@ -60,6 +60,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <iostream>
 #include <map>
 #include <memory>
@@ -124,6 +125,27 @@ std::optional<std::string> optional_topic(const YAML::Node & node, const std::st
   return child.as<std::string>();
 }
 
+// Expands a leading "~" to $HOME, the same convention the shell and ROS2 launch's $(env HOME)
+// support, so evaluation config yaml files can reference models under the user's home directory
+// without hardcoding an absolute path.
+std::string expand_user_path(const std::string & path)
+{
+  if (path.empty() || path[0] != '~') {
+    return path;
+  }
+  const char * home = std::getenv("HOME");
+  if (!home) {
+    throw std::runtime_error(
+      "evaluation config: path '" + path + "' starts with '~' but $HOME is not set");
+  }
+  return std::string(home) + path.substr(1);
+}
+
+std::string require_path(const YAML::Node & node, const std::string & key)
+{
+  return expand_user_path(require(node, key).as<std::string>());
+}
+
 CameraConfig parse_camera(const YAML::Node & node)
 {
   CameraConfig camera;
@@ -153,20 +175,21 @@ TrafficLightRecognitionConfig parse_recognition(const YAML::Node & node)
   TrafficLightRecognitionConfig config;
 
   const auto detector = require(node, "whole_image_detector");
-  config.whole_image_detector_model_path = require(detector, "model_path").as<std::string>();
-  config.whole_image_detector_label_path = require(detector, "label_path").as<std::string>();
+  config.whole_image_detector_model_path = require_path(detector, "model_path");
+  config.whole_image_detector_label_path = require_path(detector, "label_path");
   config.whole_image_detector_roi_remap_path =
-    detector["roi_remap_path"] ? detector["roi_remap_path"].as<std::string>() : std::string();
+    detector["roi_remap_path"] ? expand_user_path(detector["roi_remap_path"].as<std::string>())
+                               : std::string();
   config.whole_image_detector_score_threshold = require(detector, "score_threshold").as<float>();
   config.whole_image_detector_nms_threshold = require(detector, "nms_threshold").as<float>();
 
   const auto car = require(node, "car_classifier");
-  config.car_classifier_model_path = require(car, "model_path").as<std::string>();
-  config.car_classifier_label_path = require(car, "label_path").as<std::string>();
+  config.car_classifier_model_path = require_path(car, "model_path");
+  config.car_classifier_label_path = require_path(car, "label_path");
 
   const auto pedestrian = require(node, "pedestrian_classifier");
-  config.pedestrian_classifier_model_path = require(pedestrian, "model_path").as<std::string>();
-  config.pedestrian_classifier_label_path = require(pedestrian, "label_path").as<std::string>();
+  config.pedestrian_classifier_model_path = require_path(pedestrian, "model_path");
+  config.pedestrian_classifier_label_path = require_path(pedestrian, "label_path");
 
   const auto classifier = require(node, "classifier");
   config.over_exposure_threshold = require(classifier, "over_exposure_threshold").as<double>();
