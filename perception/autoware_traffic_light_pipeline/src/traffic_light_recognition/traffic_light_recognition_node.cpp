@@ -26,8 +26,19 @@ std::string joined(const std::string & prefix, const std::string & key)
 {
   return prefix + "." + key;
 }
-}  // namespace
 
+// Declares this package's ROS 2 parameters on `node` and returns the resulting (flat)
+// TrafficLightRecognitionConfig the ROS-free TrafficLightRecognition core consumes. Declaring
+// parameters is a Node concern -- the core itself never touches rclcpp -- but this is a plain
+// read of the node's parameter tree and nothing else: every fixed (non-parameter) value the
+// underlying cores need (precision, mean/std, gpu_id, classify_traffic_light_type, the
+// map_based_detector calibration-error margins and range/angle cutoffs, ...) is filled in by
+// TrafficLightRecognition's constructor / build_engines() (traffic_light_recognition.cpp), not
+// here.
+//
+// model_path / label_path / roi_remap_path (per detector/classifier) are declared here as plain
+// top-level parameters, not part of the versioned config file (plan §5.1), so a launch file can
+// inject them without the config file ever hard-coding a $HOME/autoware_data path.
 TrafficLightRecognitionConfig declare_recognition_config(rclcpp::Node * node)
 {
   TrafficLightRecognitionConfig config;
@@ -65,6 +76,7 @@ TrafficLightRecognitionConfig declare_recognition_config(rclcpp::Node * node)
 
   return config;
 }
+}  // namespace
 
 TrafficLightRecognitionNode::TrafficLightRecognitionNode(const rclcpp::NodeOptions & node_options)
 : Node("traffic_light_recognition", node_options),

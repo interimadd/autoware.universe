@@ -38,21 +38,6 @@
 namespace autoware::traffic_light
 {
 
-// Declares this package's ROS 2 parameters on `node` and returns the resulting (flat)
-// TrafficLightRecognitionConfig the ROS-free TrafficLightRecognition core consumes. Declaring
-// parameters is a Node concern -- the core itself never touches rclcpp -- but this is a plain
-// read of the node's parameter tree and nothing else: every fixed (non-parameter) value the
-// underlying cores need (precision, mean/std, gpu_id, classify_traffic_light_type, the
-// map_based_detector calibration-error margins and range/angle cutoffs, ...) is filled in by
-// TrafficLightRecognition's constructor / build_engines() (traffic_light_recognition.cpp), not
-// here. Exposed as a free function (rather than kept file-local to the .cpp) so
-// test_traffic_light_recognition_params.cpp can exercise it directly, without a full Node.
-//
-// model_path / label_path / roi_remap_path (per detector/classifier) are declared here as plain
-// top-level parameters, not part of the versioned config file (plan §5.1), so a launch file can
-// inject them without the config file ever hard-coding a $HOME/autoware_data path.
-TrafficLightRecognitionConfig declare_recognition_config(rclcpp::Node * node);
-
 // Node adapter around TrafficLightRecognition (plan §4). Composes, for one camera, everything
 // production's traffic_light_node_container.launch.py currently spreads across 5 Nodes
 // (map_based_detector, whole_image yolox detector, selector, car/pedestrian classifiers, category

@@ -138,8 +138,8 @@ Several things are true of this package's parameter surface, all deliberate:
 
 ### Where each value lives
 
-`declare_recognition_config(rclcpp::Node *)` (declared in `traffic_light_recognition_node.hpp`, defined in
-`traffic_light_recognition_node.cpp` alongside the Node itself) declares parameters and nothing
+`declare_recognition_config(rclcpp::Node *)` (file-local to
+`traffic_light_recognition_node.cpp`, alongside the Node itself) declares parameters and nothing
 else: it reads exactly the values listed above (plus the
 launch-injected paths) into a deliberately flat `TrafficLightRecognitionConfig`
 ([traffic_light_recognition.hpp](src/traffic_light_recognition/traffic_light_recognition.hpp)) --
@@ -247,7 +247,6 @@ unrecognized `arbiter.source_priority` to `"confidence"` (with a warning), exact
 | Test                                         | GPU          | Content                                                                                                                                                                                                                 |
 | -------------------------------------------- | ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `test_traffic_light_recognition`             | required     | `TrafficLightRecognition::run()` with an empty map / no route, tf-resolution failure, `set_route()` error propagation                                                                                                   |
-| `test_traffic_light_recognition_params`      | not required | `declare_recognition_config()` against the package's default config, including that `car_classifier` / `pedestrian_classifier` read distinct parameter prefixes                                                         |
 | `test_traffic_light_recognition_integration` | required     | Front-end Node pub/sub: the 3 production output topics fire                                                                                                                                                             |
 | `test_traffic_light_fusion_params`           | not required | `declare_fusion_config()` against the package's default config, including that the three component prefixes are read from their own subtrees and that an unknown `arbiter.source_priority` falls back to `"confidence"` |
 

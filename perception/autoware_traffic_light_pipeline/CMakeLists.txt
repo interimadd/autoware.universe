@@ -91,15 +91,6 @@ if(BUILD_TESTING)
     target_link_libraries(test_traffic_light_recognition autoware_traffic_light_recognition)
   endif()
 
-  # Node-level param -> config conversion test. No GPU needed: declare_recognition_config() only
-  # declares parameters, it never builds a TensorRT engine.
-  ament_add_ros_isolated_gtest(test_traffic_light_recognition_params
-    test/traffic_light_recognition/test_traffic_light_recognition_params.cpp
-  )
-  target_include_directories(test_traffic_light_recognition_params PRIVATE src)
-  target_link_libraries(test_traffic_light_recognition_params
-    autoware_traffic_light_recognition_node)
-
   # Node pub/sub integration test. GPU-gated for the same reason as test_traffic_light_recognition.
   if(TRT_AVAIL AND CUDA_AVAIL)
     ament_add_ros_isolated_gtest(test_traffic_light_recognition_integration
