@@ -1,0 +1,58 @@
+# Evaluation config for the x2 vehicle (sensor kit v4.4, camera6/camera7).
+#
+# input_bag / lanelet2_map / map_projector_info are derived from --dataset, not listed here:
+# every dataset uses the fixed layout <dataset>/input_bag, <dataset>/map/lanelet2_map.osm,
+# <dataset>/map/map_projector_info.yaml.
+#
+# Run with:
+#   ros2 run autoware_traffic_light_recognition run_traffic_light_recognition_evaluation \
+#     --config <this file> \
+#     --dataset <t4dataset dir> \
+#     --output-bag result/output_bag
+
+# One TrafficLightRecognition instance per entry.
+cameras:
+  - namespace: camera6
+    camera_info_topic: /sensing/camera/camera6/camera_info
+    compressed_image_topic: /sensing/camera/camera6/image_raw/compressed
+    image_topic: null # 非圧縮画像を使う場合はこちらを設定し compressed_image_topic を null にする
+    output_topics:
+      traffic_signals: /perception/traffic_light_recognition/camera6/classification/traffic_signals
+      rois: /perception/traffic_light_recognition/camera6/detection/rois
+    # map->camera tf のサンプリング窓。カメラごとに異なる唯一のパラメータ。
+    map_based_detector:
+      min_timestamp_offset: -0.3
+      max_timestamp_offset: 0.0
+
+  - namespace: camera7
+    camera_info_topic: /sensing/camera/camera7/camera_info
+    compressed_image_topic: /sensing/camera/camera7/image_raw/compressed
+    image_topic: null
+    output_topics:
+      traffic_signals: /perception/traffic_light_recognition/camera7/classification/traffic_signals
+      rois: /perception/traffic_light_recognition/camera7/detection/rois
+    map_based_detector:
+      min_timestamp_offset: -0.3
+      max_timestamp_offset: 0.0
+
+# 全カメラ共通の TrafficLightRecognitionConfig。閾値は config/traffic_light_recognition.param.yaml
+# と、model_path / label_path 類は launch/traffic_light_recognition.launch.xml と同じ値を置く。
+recognition:
+  whole_image_detector:
+    model_path: /home/takahisaishikawa/autoware_data/tensorrt_yolox/yolox_s_car_ped_tl_detector_960_960_batch_1.onnx
+    label_path: /home/takahisaishikawa/autoware_data/tensorrt_yolox/car_ped_tl_detector_labels.txt
+    roi_remap_path: /home/takahisaishikawa/work/component_test/autoware/install/autoware_tensorrt_yolox/share/autoware_tensorrt_yolox/config/traffic_light_roi_label_remap.csv
+    score_threshold: 0.35
+    nms_threshold: 0.7
+
+  car_classifier:
+    model_path: /home/takahisaishikawa/autoware_data/traffic_light_classifier/traffic_light_classifier_mobilenetv2_batch_6.onnx
+    label_path: /home/takahisaishikawa/autoware_data/traffic_light_classifier/lamp_labels.txt
+
+  pedestrian_classifier:
+    model_path: /home/takahisaishikawa/autoware_data/traffic_light_classifier/ped_traffic_light_classifier_mobilenetv2_batch_6.onnx
+    label_path: /home/takahisaishikawa/autoware_data/traffic_light_classifier/lamp_labels_ped.txt
+
+  classifier:
+    over_exposure_threshold: 0.85
+    under_exposure_threshold: -0.83

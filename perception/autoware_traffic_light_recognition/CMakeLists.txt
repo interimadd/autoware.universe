@@ -19,6 +19,17 @@ rclcpp_components_register_node(${PROJECT_NAME}_node
   PLUGIN "autoware::traffic_light::TrafficLightRecognitionNode"
   EXECUTABLE traffic_light_recognition_node)
 
+# t4dataset を入力に TrafficLightRecognition::run() を回し、結果を rosbag に書き出すオフライン
+# 評価ツール（evaluation/README.md）。ROS ランタイム（rclcpp::init / executor / DDS）は使わず、
+# コアライブラリと rosbag2 だけに依存する。
+find_package(yaml-cpp REQUIRED)
+ament_auto_add_executable(run_traffic_light_recognition_evaluation
+  evaluation/run_traffic_light_recognition_evaluation.cpp
+)
+target_include_directories(run_traffic_light_recognition_evaluation PRIVATE src)
+target_link_libraries(run_traffic_light_recognition_evaluation ${PROJECT_NAME} yaml-cpp)
+install(DIRECTORY evaluation/config DESTINATION share/${PROJECT_NAME}/evaluation)
+
 if(BUILD_TESTING)
   find_package(ament_cmake_gtest REQUIRED)
 

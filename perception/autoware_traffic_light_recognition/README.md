@@ -162,3 +162,12 @@ GPU-gated tests are additionally compiled only when CUDA and TensorRT are detect
 convention), and self-skip (`GTEST_SKIP`) at runtime when the ONNX models are not present under
 `autoware_data` or no usable GPU is found, so the same binary behaves correctly whether or not the
 environment is fully provisioned.
+
+## Offline evaluation
+
+`evaluation/` ships `run_traffic_light_recognition_evaluation`, a ROS-runtime-free executable that
+takes a t4dataset path, drives `TrafficLightRecognition::run()` over every (image, camera_info)
+frame in the dataset's rosbag, and writes the results to an output rosbag under production topic
+names. It is a simplified port of `autoware_traffic_light_component_test`'s
+`run_traffic_light_pipeline`, restricted to this package's front-end core. See
+[evaluation/README.md](evaluation/README.md).
