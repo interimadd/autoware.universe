@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "autoware/traffic_light_recognition/traffic_light_recognition.hpp"
+#include "traffic_light_recognition.hpp"
 
 #include <autoware/tensorrt_yolox/label.hpp>
 #include <autoware/traffic_light_category_merger/traffic_light_category_merger.hpp>

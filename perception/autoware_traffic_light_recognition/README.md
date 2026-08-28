@@ -128,7 +128,7 @@ Several things are true of this package's parameter surface, all deliberate:
 `traffic_light_recognition_node.cpp` alongside the Node itself) declares parameters and nothing
 else: it reads exactly the values listed above (plus the
 launch-injected paths) into a deliberately flat `TrafficLightRecognitionConfig`
-([traffic_light_recognition.hpp](include/autoware/traffic_light_recognition/traffic_light_recognition.hpp)) --
+([traffic_light_recognition.hpp](src/traffic_light_recognition.hpp)) --
 one struct with no nested per-core config types. It never touches a model or label file, and
 knows nothing about precision, mean/std, `gpu_id`, or any other fixed value above.
 

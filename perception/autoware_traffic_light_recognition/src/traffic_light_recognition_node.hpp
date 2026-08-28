@@ -15,7 +15,8 @@
 #ifndef TRAFFIC_LIGHT_RECOGNITION_NODE_HPP_
 #define TRAFFIC_LIGHT_RECOGNITION_NODE_HPP_
 
-#include <autoware/traffic_light_recognition/traffic_light_recognition.hpp>
+#include "traffic_light_recognition.hpp"
+
 #include <rclcpp/rclcpp.hpp>
 
 #include <autoware_map_msgs/msg/lanelet_map_bin.hpp>

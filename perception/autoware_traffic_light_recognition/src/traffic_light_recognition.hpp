@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef AUTOWARE__TRAFFIC_LIGHT_RECOGNITION__TRAFFIC_LIGHT_RECOGNITION_HPP_
-#define AUTOWARE__TRAFFIC_LIGHT_RECOGNITION__TRAFFIC_LIGHT_RECOGNITION_HPP_
+#ifndef TRAFFIC_LIGHT_RECOGNITION_HPP_
+#define TRAFFIC_LIGHT_RECOGNITION_HPP_
 
 #include <autoware/tensorrt_yolox/tensorrt_yolox_detector.hpp>
 #include <autoware/traffic_light_classifier/classifier/cnn_classifier.hpp>
@@ -132,4 +132,4 @@ private:
 
 }  // namespace autoware::traffic_light
 
-#endif  // AUTOWARE__TRAFFIC_LIGHT_RECOGNITION__TRAFFIC_LIGHT_RECOGNITION_HPP_
+#endif  // TRAFFIC_LIGHT_RECOGNITION_HPP_
