@@ -21,7 +21,21 @@
 
 namespace autoware::traffic_light
 {
+namespace
+{
 
+// Declares this Node's ROS 2 parameters on `node` and returns the resulting
+// TrafficLightFusionConfig the ROS-free TrafficLightFusion core consumes. Only `arbiter.*` is
+// exposed as a parameter, under the prefix of the component it belongs to (mirroring
+// TrafficLightArbiterNode's own parameter names) since one Node now carries what used to be
+// three Nodes' worth of configuration and a flat name could collide with a future one. The other
+// two components' values are hardcoded here instead of declared: no deployment has ever needed to
+// change multi_camera_fusion's or crosswalk_estimator's behavior from their fixed defaults.
+// `source_priority` is normalized here exactly as TrafficLightArbiterNode normalizes it, so the
+// core never has to guard against a typo.
+//
+// `camera_namespaces` is not part of the config struct: it selects which cameras this Node
+// subscribes to, which is Node I/O, not core configuration. It is read separately by the Node.
 TrafficLightFusionConfig declare_fusion_config(rclcpp::Node * node)
 {
   TrafficLightFusionConfig config;
@@ -68,6 +82,7 @@ TrafficLightFusionConfig declare_fusion_config(rclcpp::Node * node)
 
   return config;
 }
+}  // namespace
 
 TrafficLightFusionNode::TrafficLightFusionNode(const rclcpp::NodeOptions & node_options)
 : Node("traffic_light_fusion", node_options), config_(declare_fusion_config(this))

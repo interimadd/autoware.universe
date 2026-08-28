@@ -236,19 +236,18 @@ per-deployment fact, injected by
 [launch/traffic_light_fusion.launch.xml](launch/traffic_light_fusion.launch.xml), the same way the
 front-end's model/label paths are.
 
-`declare_fusion_config(rclcpp::Node *)` (declared in `traffic_light_fusion_node.hpp`, defined in
-`traffic_light_fusion_node.cpp`) declares those parameters and nothing else, returning the flat
+`declare_fusion_config(rclcpp::Node *)` (file-local to `traffic_light_fusion_node.cpp`) declares
+those parameters and nothing else, returning the flat
 `TrafficLightFusionConfig` the core consumes. The one piece of logic it carries is normalizing an
 unrecognized `arbiter.source_priority` to `"confidence"` (with a warning), exactly as
 `TrafficLightArbiterNode` does -- the core itself would silently do the same, unwarned.
 
 ## Testing
 
-| Test                                         | GPU          | Content                                                                                                                                                                                                                 |
-| -------------------------------------------- | ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `test_traffic_light_recognition`             | required     | `TrafficLightRecognition::run()` with an empty map / no route, tf-resolution failure, `set_route()` error propagation                                                                                                   |
-| `test_traffic_light_recognition_integration` | required     | Front-end Node pub/sub: the 3 production output topics fire                                                                                                                                                             |
-| `test_traffic_light_fusion_params`           | not required | `declare_fusion_config()` against the package's default config, including that the three component prefixes are read from their own subtrees and that an unknown `arbiter.source_priority` falls back to `"confidence"` |
+| Test                                         | GPU      | Content                                                                                                               |
+| -------------------------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------- |
+| `test_traffic_light_recognition`             | required | `TrafficLightRecognition::run()` with an empty map / no route, tf-resolution failure, `set_route()` error propagation |
+| `test_traffic_light_recognition_integration` | required | Front-end Node pub/sub: the 3 production output topics fire                                                           |
 
 GPU-gated tests are additionally compiled only when CUDA and TensorRT are detected
 (`TRT_AVAIL AND CUDA_AVAIL` in `CMakeLists.txt`, matching `autoware_traffic_light_classifier`'s

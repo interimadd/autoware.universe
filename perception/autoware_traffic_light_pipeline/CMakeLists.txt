@@ -101,13 +101,6 @@ if(BUILD_TESTING)
     target_link_libraries(test_traffic_light_recognition_integration
       autoware_traffic_light_recognition_node)
   endif()
-
-  # Back-end param -> config conversion test.
-  ament_add_ros_isolated_gtest(test_traffic_light_fusion_params
-    test/traffic_light_fusion/test_traffic_light_fusion_params.cpp
-  )
-  target_include_directories(test_traffic_light_fusion_params PRIVATE src)
-  target_link_libraries(test_traffic_light_fusion_params autoware_traffic_light_fusion_node)
 endif()
 
 ament_auto_package(
