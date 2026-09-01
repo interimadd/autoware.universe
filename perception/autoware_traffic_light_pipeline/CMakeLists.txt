@@ -47,18 +47,32 @@ rclcpp_components_register_node(autoware_traffic_light_fusion_node
   PLUGIN "autoware::traffic_light::TrafficLightFusionNode"
   EXECUTABLE traffic_light_fusion_node)
 
-# --- offline evaluation tool -------------------------------------------------------------------
+# --- offline evaluation tools -------------------------------------------------------------------
 
-# t4dataset を入力に TrafficLightRecognition::run() を回し、結果を rosbag に書き出すオフライン
-# 評価ツール（evaluation/README.md）。ROS ランタイム（rclcpp::init / executor / DDS）は使わず、
-# コアライブラリと rosbag2 だけに依存する。
+# t4dataset を入力に前段（run_traffic_light_recognition_evaluation）／前段+後段
+# （run_traffic_light_pipeline_evaluation）を回し、結果を rosbag に書き出すオフライン評価ツール
+# （evaluation/README.md）。ROS ランタイム（rclcpp::init / executor / DDS）は使わず、コアライブラリ
+# と rosbag2 だけに依存する。yaml/rosbag 読み込みの共通部分は evaluation_common に切り出し、両方の
+# 実行ファイルで共有する。
 find_package(yaml-cpp REQUIRED)
+ament_auto_add_library(evaluation_common SHARED
+  evaluation/evaluation_common.cpp
+)
+target_include_directories(evaluation_common PUBLIC src)
+target_link_libraries(evaluation_common autoware_traffic_light_recognition yaml-cpp)
+
 ament_auto_add_executable(run_traffic_light_recognition_evaluation
   evaluation/run_traffic_light_recognition_evaluation.cpp
 )
-target_include_directories(run_traffic_light_recognition_evaluation PRIVATE src)
-target_link_libraries(run_traffic_light_recognition_evaluation
-  autoware_traffic_light_recognition yaml-cpp)
+target_link_libraries(run_traffic_light_recognition_evaluation evaluation_common)
+
+ament_auto_add_executable(run_traffic_light_pipeline_evaluation
+  evaluation/run_traffic_light_pipeline_evaluation.cpp
+)
+target_include_directories(run_traffic_light_pipeline_evaluation PRIVATE src)
+target_link_libraries(run_traffic_light_pipeline_evaluation
+  evaluation_common autoware_traffic_light_fusion yaml-cpp)
+
 install(DIRECTORY evaluation/config DESTINATION share/${PROJECT_NAME}/evaluation)
 
 if(BUILD_TESTING)

@@ -14,10 +14,10 @@
 cameras:
   - namespace: camera4
     camera_info_topic: /sensing/camera/camera4/camera_info
-    compressed_image_topic: /sensing/camera/camera6/image_raw/compressed
+    compressed_image_topic: /sensing/camera/camera4/image_raw/compressed
     image_topic: null # 非圧縮画像を使う場合はこちらを設定し compressed_image_topic を null にする
     output_topics:
-      traffic_signals: /perception/traffic_light_recognition/camera6/classification/traffic_signals
+      traffic_signals: /perception/traffic_light_recognition/camera4/classification/traffic_signals
       rois: /perception/traffic_light_recognition/camera4/detection/rois
     # map->camera tf のサンプリング窓。カメラごとに異なる唯一のパラメータ。
     map_based_detector:
@@ -79,3 +79,17 @@ recognition:
   classifier:
     over_exposure_threshold: 0.85
     under_exposure_threshold: -0.83
+
+# 後段（fusion）の設定。run_traffic_light_pipeline_evaluation でのみ使用する。
+# multi_camera_fusion / crosswalk_estimator は traffic_light_fusion_node.cpp の
+# declare_fusion_config() と同じ固定値をツール側でハードコードしており(本番でも parameter
+# 化されていない)、ここに書くのは唯一 parameter 化されている arbiter.* のみ
+# (config/traffic_light_fusion.param.yaml と同値)。
+fusion:
+  output_topic: /perception/traffic_light_recognition/internal/traffic_signals
+  arbiter:
+    external_delay_tolerance: 5.0
+    external_time_tolerance: 5.0
+    perception_time_tolerance: 1.0
+    source_priority: confidence
+    enable_signal_matching: false

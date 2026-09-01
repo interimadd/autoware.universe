@@ -1,24 +1,38 @@
-# TrafficLightRecognition オフライン評価ツール
+# 信号認識パイプライン オフライン評価ツール
 
-t4dataset のパスを指定すると、`TrafficLightRecognition::run()`（本パッケージの ROS 非依存コア）
-を全フレームに対して実行し、その結果を rosbag に書き出すツールです。
+t4dataset のパスを指定すると、このパッケージの ROS 非依存コアを全フレームに対して実行し、
+その結果を rosbag に書き出すツール群です。2 本の実行ファイルがあります。
 
-`autoware_traffic_light_component_test` の `run_traffic_light_pipeline` のうち、前段パイプライン
-（本パッケージのコア）に相当する部分だけを移植したものです。以下は移植していません。
+| 実行ファイル                               | 回すコア                              | 出力                                                                                                                       |
+| ------------------------------------------ | ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `run_traffic_light_recognition_evaluation` | 前段（`TrafficLightRecognition`）のみ | カメラごとの `merged_signals` / `selected_rois`                                                                            |
+| `run_traffic_light_pipeline_evaluation`    | 前段 + 後段（`TrafficLightFusion`）   | 前段の出力に加え、`TrafficLightGroupArray`（本番の `/perception/traffic_light_recognition/internal/traffic_signals` 相当） |
 
-- 後段（multi_camera_fusion / arbiter / crosswalk_traffic_light_estimator）の評価
+`autoware_traffic_light_component_test` の `run_traffic_light_pipeline` の移植です。以下は移植して
+いません。
+
 - `ParameterLoader` によるコンポーネント別 param.yaml のマージ
-  （`TrafficLightRecognitionConfig` が既にフラットなので、評価用 yaml 1 枚に直接書く）
+  （`TrafficLightRecognitionConfig` / `TrafficLightFusionConfig` が既にフラットなので、評価用
+  yaml 1 枚に直接書く）
 
 `rclcpp::init` / executor / DDS は一切使わず、コアライブラリと rosbag2 のみで動作します。
 
 ## 使い方
 
 ```bash
+CFG=$(ros2 pkg prefix --share autoware_traffic_light_pipeline)/evaluation/config/x2_v4.4.evaluation.yaml
+
+# 前段のみ
 ros2 run autoware_traffic_light_pipeline run_traffic_light_recognition_evaluation \
-  --config $(ros2 pkg prefix --share autoware_traffic_light_pipeline)/evaluation/config/x2_v4.4.evaluation.yaml \
+  --config $CFG \
   --dataset <t4dataset のパス> \
-  --output-bag result/output_bag
+  --output-bag result/recognition_bag
+
+# 前段 + 後段
+ros2 run autoware_traffic_light_pipeline run_traffic_light_pipeline_evaluation \
+  --config $CFG \
+  --dataset <t4dataset のパス> \
+  --output-bag result/pipeline_bag
 ```
 
 データセットのレイアウトは固定です（Component Test ハーネスと同じ規約）。
@@ -31,18 +45,29 @@ ros2 run autoware_traffic_light_pipeline run_traffic_light_recognition_evaluatio
 
 ## 入出力
 
-|      | 内容                                                                                           |
-| ---- | ---------------------------------------------------------------------------------------------- |
-| 入力 | `<dataset>/input_bag` の `camera_info` / `image_raw(/compressed)` / `/tf` / `/tf_static`       |
-| 出力 | `run()` の `merged_signals`（`TrafficLightArray`）と `selected_rois`（`TrafficLightRoiArray`） |
+|                                                          | 内容                                                                                           |
+| -------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| 入力                                                     | `<dataset>/input_bag` の `camera_info` / `image_raw(/compressed)` / `/tf` / `/tf_static`       |
+| 前段出力                                                 | `run()` の `merged_signals`（`TrafficLightArray`）と `selected_rois`（`TrafficLightRoiArray`） |
+| 後段出力（`run_traffic_light_pipeline_evaluation` のみ） | `TrafficLightFusion::run()` の出力（`TrafficLightGroupArray`）                                 |
 
 - 画像と camera_info は本番の `message_filters::ExactTime` と同じくヘッダスタンプ完全一致で
   ペアリングし、相手のいないメッセージは捨てます。
-- 出力トピック名は評価用 yaml の `cameras[].output_topics` で指定します（本番のトピック名）。
+- 出力トピック名は評価用 yaml の `cameras[].output_topics`（前段）と `fusion.output_topic`
+  （後段）で指定します（本番のトピック名）。
 - 各メッセージはヘッダスタンプの時刻で書き込むため、同じデータセットからは常に同じ bag が
   得られます（実行時刻には依存しません）。
 - 出力 bag のストレージ形式は入力 bag と同じものを自動で使います。
-- `run()` が失敗したフレームは stderr に出して読み飛ばします（Node が捨てるのと同じ挙動）。
+- `run()` が失敗したフレーム/イベントは stderr に出して読み飛ばします（Node が捨てるのと同じ
+  挙動）。
+
+### `run_traffic_light_pipeline_evaluation` の処理順序
+
+前段を全フレーム処理し終えてから、まとめて後段を回します（フレームごとに前段→後段を交互に
+呼ぶ component_test 版とは順序が異なります）。`TrafficLightFusion` はステートフルですが時計を
+読まないため、同じ入力列を同じ順序で流せば本番と同一の出力になります。前段の結果は
+`camera_info` も含めてメモリに保持されるため（画像は保持しません）、bag を読み直す必要は
+ありません。
 
 ## 評価用 yaml
 
@@ -51,6 +76,12 @@ ros2 run autoware_traffic_light_pipeline run_traffic_light_recognition_evaluatio
 `config/traffic_light_recognition.param.yaml` と `launch/traffic_light_recognition.launch.xml`
 の値をそのまま持ってきたものです。カメラごとに変わるのは
 `map_based_detector.min/max_timestamp_offset` だけなので、そこだけ `cameras[]` 側にあります。
+
+`fusion:` セクションは `run_traffic_light_pipeline_evaluation` でのみ使用します。
+`multi_camera_fusion` / `crosswalk_estimator` は `traffic_light_fusion_node.cpp` の
+`declare_fusion_config()` と同じ固定値をツール側でハードコードしており（本番でも parameter
+化されていない）、yaml に書くのは唯一 parameter 化されている `arbiter.*` のみです
+（`config/traffic_light_fusion.param.yaml` と同値）。
 
 model_path / label_path 類は環境依存の絶対パスなので、手元の `autoware_data` に合わせて
 書き換えてください。
