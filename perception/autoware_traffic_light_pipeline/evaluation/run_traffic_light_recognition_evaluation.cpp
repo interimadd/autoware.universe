@@ -62,6 +62,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
+#include <filesystem>
 #include <iostream>
 #include <map>
 #include <memory>
@@ -443,6 +444,41 @@ std::string detect_input_bag_storage_id(const std::string & bag_path)
   return reader.get_metadata().storage_identifier;
 }
 
+// Guards remove_output_bag_if_exists() against deleting anything that is not actually a rosbag2
+// bag directory: every entry directly inside it must be a rosbag2 storage file (.db3 / .mcap) or
+// a yaml file (metadata.yaml). Throws if a stray file is found, so a mistyped --output-bag path
+// never silently wipes out an unrelated directory.
+void check_only_contains_rosbag_files(const std::string & bag_path)
+{
+  for (const auto & entry : std::filesystem::directory_iterator(bag_path)) {
+    const auto & extension = entry.path().extension();
+    if (
+      entry.is_directory() ||
+      (extension != ".db3" && extension != ".mcap" && extension != ".yaml")) {
+      throw std::runtime_error(
+        "refusing to overwrite " + bag_path + ": unexpected entry " + entry.path().string() +
+        " (expected only .db3 / .mcap / .yaml files -- is --output-bag pointing at the right "
+        "directory?)");
+    }
+  }
+}
+
+// Removes `output_bag_path` if it already exists, so the writer below can always create it fresh.
+// Refuses to remove anything that does not look like a rosbag2 bag directory (see
+// check_only_contains_rosbag_files()), to guard against a mistyped path deleting unrelated data.
+void remove_output_bag_if_exists(const std::string & output_bag_path)
+{
+  if (!std::filesystem::exists(output_bag_path)) {
+    return;
+  }
+  if (!std::filesystem::is_directory(output_bag_path)) {
+    throw std::runtime_error(
+      "refusing to overwrite " + output_bag_path + ": it is not a directory");
+  }
+  check_only_contains_rosbag_files(output_bag_path);
+  std::filesystem::remove_all(output_bag_path);
+}
+
 // Writes every recorded result to `output_bag_path` under the configured production topic names.
 // The input image/camera_info topics are not copied over, and neither are the core's intermediate
 // stages -- only run()'s own outputs. Each message is written at its own header stamp (never
@@ -451,6 +487,8 @@ void write_to_rosbag(
   const EvaluationConfig & config, const std::string & output_bag_path,
   const std::vector<RecordedResult> & recorded_results)
 {
+  remove_output_bag_if_exists(output_bag_path);
+
   rosbag2_cpp::Writer writer;
   writer.open({output_bag_path, detect_input_bag_storage_id(config.input_bag_path)});
 
