@@ -12,14 +12,36 @@
 
 # One TrafficLightRecognition instance per entry.
 cameras:
-  - namespace: camera6
-    camera_info_topic: /sensing/camera/camera6/camera_info
+  - namespace: camera4
+    camera_info_topic: /sensing/camera/camera4/camera_info
     compressed_image_topic: /sensing/camera/camera6/image_raw/compressed
     image_topic: null # 非圧縮画像を使う場合はこちらを設定し compressed_image_topic を null にする
     output_topics:
       traffic_signals: /perception/traffic_light_recognition/camera6/classification/traffic_signals
-      rois: /perception/traffic_light_recognition/camera6/detection/rois
+      rois: /perception/traffic_light_recognition/camera4/detection/rois
     # map->camera tf のサンプリング窓。カメラごとに異なる唯一のパラメータ。
+    map_based_detector:
+      min_timestamp_offset: -0.3
+      max_timestamp_offset: 0.0
+
+  - namespace: camera5
+    camera_info_topic: /sensing/camera/camera5/camera_info
+    compressed_image_topic: /sensing/camera/camera5/image_raw/compressed
+    image_topic: null
+    output_topics:
+      traffic_signals: /perception/traffic_light_recognition/camera5/classification/traffic_signals
+      rois: /perception/traffic_light_recognition/camera5/detection/rois
+    map_based_detector:
+      min_timestamp_offset: -0.3
+      max_timestamp_offset: 0.0
+
+  - namespace: camera6
+    camera_info_topic: /sensing/camera/camera6/camera_info
+    compressed_image_topic: /sensing/camera/camera6/image_raw/compressed
+    image_topic: null
+    output_topics:
+      traffic_signals: /perception/traffic_light_recognition/camera6/classification/traffic_signals
+      rois: /perception/traffic_light_recognition/camera6/detection/rois
     map_based_detector:
       min_timestamp_offset: -0.3
       max_timestamp_offset: 0.0
