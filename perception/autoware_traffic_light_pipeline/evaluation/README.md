@@ -85,3 +85,9 @@ ros2 run autoware_traffic_light_pipeline run_traffic_light_pipeline_evaluation \
 
 model_path / label_path 類は環境依存の絶対パスなので、手元の `autoware_data` に合わせて
 書き換えてください。
+
+## 精度評価
+
+上記 2 本の実行ファイルは出力 bag を書き出すだけで、精度評価そのものは行いません。
+`run_traffic_light_pipeline_evaluation` の出力 bag を t4dataset の `annotation/` と突き合わせて
+距離ビンごとに精度評価するツールは [scripts/README.md](scripts/README.md) を参照してください。

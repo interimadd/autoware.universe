@@ -75,6 +75,17 @@ target_link_libraries(run_traffic_light_pipeline_evaluation
 
 install(DIRECTORY evaluation/config DESTINATION share/${PROJECT_NAME}/evaluation)
 
+# Phase 2 (evaluate_result_implementation_plan.md): Python accuracy evaluation script, plus the
+# sibling modules it imports (criteria.py / traffic_light_label.py). All three are installed flat
+# into lib/${PROJECT_NAME} so `ros2 run` finds the entry point and its own sys.path insertion (see
+# evaluate_traffic_light_recognition.py) finds the siblings next to it.
+install(PROGRAMS
+  evaluation/scripts/evaluate_traffic_light_recognition.py
+  evaluation/scripts/criteria.py
+  evaluation/scripts/traffic_light_label.py
+  DESTINATION lib/${PROJECT_NAME}
+)
+
 if(BUILD_TESTING)
   find_package(ament_cmake_gtest REQUIRED)
 

@@ -41,6 +41,14 @@
 
   <!-- ROS / メッセージ -->
 
+  <!-- evaluation/scripts/evaluate_traffic_light_recognition.py (Phase 2, see
+       evaluate_result_implementation_plan.md). perception_eval itself is NOT listed here: it does
+       not exist in this workspace's rosdep and must come from a separately-sourced overlay (see
+       evaluation/scripts/README.md). -->
+  <exec_depend>autoware_lanelet2_extension_python</exec_depend>
+  <exec_depend>python3-yaml</exec_depend>
+  <exec_depend>rosbag2_py</exec_depend>
+
   <test_depend>ament_cmake_gtest</test_depend>
   <test_depend>ament_cmake_ros</test_depend>
   <test_depend>autoware_cuda_utils</test_depend>
