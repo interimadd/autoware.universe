@@ -308,6 +308,11 @@ class CriterionAggregate:
         return 0.0 if self.frames == 0 else self.score_sum / self.frames
 
     def is_success(self) -> bool:
+        # No frame was ever evaluable for this criterion (e.g. no GT/object ever fell in this
+        # distance bin across the whole bag) -- there is nothing to fail, so treat it the same
+        # way a single NoGTNoObj frame is treated: vacuously PASS, not "0% pass rate".
+        if self.frames == 0:
+            return True
         return self.rate() >= self.pass_rate
 
 
@@ -325,7 +330,11 @@ def write_summary(aggregates: list[CriterionAggregate], output_dir: Path) -> boo
                 "avg_score": round(agg.avg_score(), 2),
                 "pass_rate[%]": round(agg.rate(), 2),
                 "required_pass_rate[%]": agg.pass_rate,
-                "result": "PASS" if agg.is_success() else "FAIL",
+                "result": (
+                    "PASS (no data)"
+                    if agg.frames == 0
+                    else ("PASS" if agg.is_success() else "FAIL")
+                ),
             },
         )
 
