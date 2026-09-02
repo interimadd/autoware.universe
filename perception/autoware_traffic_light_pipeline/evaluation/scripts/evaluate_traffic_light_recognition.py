@@ -383,32 +383,30 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--result-bag", required=True, type=Path, help="rosbag holding the topic to evaluate"
     )
-    parser.add_argument(
-        "--topic",
-        default=None,
-        help="Topic to evaluate (default: scenario's Evaluation.degradation_topic)",
-    )
     parser.add_argument("--output-dir", required=True, type=Path, help="Where to write results")
     return parser.parse_args()
 
 
-def main() -> int:  # noqa: C901, PLR0915
-    args = parse_args()
-
-    dataset_path = args.dataset.expanduser().resolve()
-    output_dir = args.output_dir.expanduser().resolve()
+def run_evaluation(
+    scenario_path: Path,
+    dataset_path: Path,
+    result_bag_path: Path,
+    output_dir: Path,
+) -> int:  # noqa: C901, PLR0915
+    dataset_path = dataset_path.expanduser().resolve()
+    output_dir = output_dir.expanduser().resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    with args.scenario.expanduser().open() as f:
+    with scenario_path.expanduser().open() as f:
         scenario = yaml.safe_load(f)
     evaluation = scenario["Evaluation"]
     if evaluation["UseCaseName"] != "traffic_light":
         error_msg = f"Not a traffic_light scenario: UseCaseName={evaluation['UseCaseName']}"
         raise ValueError(error_msg)
 
-    topic = args.topic or evaluation.get("degradation_topic")
+    topic = evaluation.get("degradation_topic")
     if topic is None:
-        error_msg = "--topic not given and scenario has no degradation_topic"
+        error_msg = "Scenario has no degradation_topic"
         raise ValueError(error_msg)
 
     criteria_list = load_criteria(scenario)
@@ -458,7 +456,7 @@ def main() -> int:  # noqa: C901, PLR0915
     reader = rosbag2_py.SequentialReader()
     reader.open(
         rosbag2_py.StorageOptions(
-            uri=args.result_bag.expanduser().resolve().as_posix(), storage_id=""
+            uri=result_bag_path.expanduser().resolve().as_posix(), storage_id=""
         ),
         rosbag2_py.ConverterOptions(
             input_serialization_format="cdr", output_serialization_format="cdr"
@@ -546,13 +544,24 @@ def main() -> int:  # noqa: C901, PLR0915
     )
     if num_frames == 0:
         logger.error(
-            "No frame was evaluated at all -- check --topic/camera_type/frame timestamps "
+            "No frame was evaluated at all -- check degradation_topic/camera_type/frame "
+            "timestamps "
             "(see evaluate_result_implementation_plan.md's failure-pattern section).",
         )
         return 1
 
     overall_pass = write_summary(aggregates, output_dir)
     return 0 if overall_pass else 1
+
+
+def main() -> int:
+    args = parse_args()
+    return run_evaluation(
+        scenario_path=args.scenario,
+        dataset_path=args.dataset,
+        result_bag_path=args.result_bag,
+        output_dir=args.output_dir,
+    )
 
 
 if __name__ == "__main__":
