@@ -187,19 +187,26 @@ CommandLineArgs parse_args(int argc, char ** argv)
   return args;
 }
 
+// Loads the evaluation config, runs recognition over every camera, and writes the results to
+// `output_bag_path`. This is the whole of main()'s work, factored out so it can be driven without
+// going through argv (e.g. from tests).
+void run_evaluation(
+  const std::string & config_path, const std::string & dataset_path,
+  const std::string & output_bag_path)
+{
+  const auto config =
+    autoware::traffic_light::evaluation::load_evaluation_config(config_path, dataset_path);
+  const auto recorded_results = run_recognition(config);
+  write_to_rosbag(config, output_bag_path, recorded_results);
+}
+
 }  // namespace
 
 int main(int argc, char ** argv)
 {
   try {
     const auto args = parse_args(argc, argv);
-    const auto config = autoware::traffic_light::evaluation::load_evaluation_config(
-      args.config_path, args.dataset_path);
-
-    const auto recorded_results = run_recognition(config);
-    write_to_rosbag(config, args.output_bag_path, recorded_results);
-    std::cerr << "wrote " << recorded_results.size() << " results to " << args.output_bag_path
-              << std::endl;
+    run_evaluation(args.config_path, args.dataset_path, args.output_bag_path);
   } catch (const std::exception & e) {
     std::cerr << "run_traffic_light_recognition_evaluation failed: " << e.what() << std::endl;
     return 1;

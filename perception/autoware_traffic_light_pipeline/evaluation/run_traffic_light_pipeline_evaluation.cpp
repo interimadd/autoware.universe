@@ -300,27 +300,32 @@ CommandLineArgs parse_args(int argc, char ** argv)
   return args;
 }
 
+// Loads the evaluation config, runs the front-end then the back-end over every camera, and writes
+// the results to `output_bag_path`. This is the whole of main()'s work, factored out so it can be
+// driven without going through argv (e.g. from tests).
+void run_evaluation(
+  const std::string & config_path, const std::string & dataset_path,
+  const std::string & output_bag_path)
+{
+  const auto config =
+    autoware::traffic_light::evaluation::load_evaluation_config(config_path, dataset_path);
+  const auto fusion_config = parse_fusion(YAML::LoadFile(config_path));
+  const auto map_msg = autoware::traffic_light::evaluation::load_map(config);
+
+  const auto recorded_frame_results = run_recognition(config, map_msg);
+  const auto recorded_fusion_results = run_fusion(fusion_config, recorded_frame_results, map_msg);
+
+  write_to_rosbag(
+    config, fusion_config, output_bag_path, recorded_frame_results, recorded_fusion_results);
+}
+
 }  // namespace
 
 int main(int argc, char ** argv)
 {
   try {
     const auto args = parse_args(argc, argv);
-    const auto config = autoware::traffic_light::evaluation::load_evaluation_config(
-      args.config_path, args.dataset_path);
-    const auto fusion_config = parse_fusion(YAML::LoadFile(args.config_path));
-
-    const auto map_msg = autoware::traffic_light::evaluation::load_map(config);
-
-    const auto recorded_frame_results = run_recognition(config, map_msg);
-    std::cerr << "front-end: " << recorded_frame_results.size() << " results" << std::endl;
-
-    const auto recorded_fusion_results = run_fusion(fusion_config, recorded_frame_results, map_msg);
-    std::cerr << "back-end: " << recorded_fusion_results.size() << " results" << std::endl;
-
-    write_to_rosbag(
-      config, fusion_config, args.output_bag_path, recorded_frame_results, recorded_fusion_results);
-    std::cerr << "wrote results to " << args.output_bag_path << std::endl;
+    run_evaluation(args.config_path, args.dataset_path, args.output_bag_path);
   } catch (const std::exception & e) {
     std::cerr << "run_traffic_light_pipeline_evaluation failed: " << e.what() << std::endl;
     return 1;
