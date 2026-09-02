@@ -283,6 +283,46 @@ std::vector<Frame> load_frames(const EvaluationConfig & config)
   return frames;
 }
 
+std::vector<Frame> load_frames_for_camera(const EvaluationConfig & config, std::size_t camera_index)
+{
+  const auto & camera = config.cameras.at(camera_index);
+  const bool compressed = camera.compressed_image_topic.has_value();
+  const auto & image_topic = compressed ? *camera.compressed_image_topic : *camera.image_topic;
+
+  rosbag2_cpp::Reader reader;
+  reader.open(config.input_bag_path);
+  reader.set_filter(rosbag2_storage::StorageFilter{{image_topic, camera.camera_info_topic}});
+
+  CameraBuffers buffers;
+  while (reader.has_next()) {
+    const auto bag_message = reader.read_next();
+    if (bag_message->topic_name == camera.camera_info_topic) {
+      auto camera_info = deserialize<sensor_msgs::msg::CameraInfo>(bag_message);
+      buffers.camera_infos_by_stamp.emplace(
+        stamp_nanoseconds(camera_info.header), std::move(camera_info));
+    } else if (compressed) {
+      auto compressed_image = deserialize<sensor_msgs::msg::CompressedImage>(bag_message);
+      buffers.images_by_stamp.emplace(
+        stamp_nanoseconds(compressed_image.header), std::move(compressed_image));
+    } else {
+      auto image = deserialize<sensor_msgs::msg::Image>(bag_message);
+      buffers.images_by_stamp.emplace(stamp_nanoseconds(image.header), std::move(image));
+    }
+  }
+
+  // buffers.images_by_stamp is already stamp-sorted (std::map), so this preserves ascending order.
+  std::vector<Frame> frames;
+  frames.reserve(buffers.images_by_stamp.size());
+  for (auto & [stamp, image] : buffers.images_by_stamp) {
+    auto camera_info_it = buffers.camera_infos_by_stamp.find(stamp);
+    if (camera_info_it == buffers.camera_infos_by_stamp.end()) {
+      continue;
+    }
+    frames.push_back(Frame{camera_index, std::move(image), std::move(camera_info_it->second)});
+  }
+  return frames;
+}
+
 std::optional<sensor_msgs::msg::Image> decode_frame_image(const Frame & frame)
 {
   if (const auto * image = std::get_if<sensor_msgs::msg::Image>(&frame.image)) {

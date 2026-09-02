@@ -126,7 +126,24 @@ struct Frame
 // no same-stamp partner on the other topic are dropped -- the same policy
 // message_filters::ExactTime enforces in production. Compressed images are not decoded here; see
 // Frame and decode_frame_image().
+//
+// Buffers every camera's frames in memory at once, which is the right tradeoff for callers that
+// must replay every camera in one globally stamp-ordered pass
+// (run_traffic_light_pipeline_evaluation, whose back-end stage is stateful and needs that order)
+// but does not scale as the number of cameras grows. A caller that drives each camera through an
+// independent, per-camera-stateless pipeline stage -- as run_traffic_light_recognition_evaluation's
+// front-end-only run does -- should use load_frames_for_camera() instead, one camera at a time.
 std::vector<Frame> load_frames(const EvaluationConfig & config);
+
+// Reads only `config.cameras[camera_index]`'s image/camera_info topics out of
+// `config.input_bag_path` and returns that camera's exact-stamp matched frames, in ascending
+// stamp order (every Frame::camera_index is `camera_index`). Same matching policy as load_frames()
+// (unmatched messages dropped), but this reads and buffers a single camera's messages at a time --
+// call it once per camera, process that camera's frames, then let them go out of scope before
+// moving to the next camera, so memory stays proportional to one camera's frame count rather than
+// the whole dataset's.
+std::vector<Frame> load_frames_for_camera(
+  const EvaluationConfig & config, std::size_t camera_index);
 
 // Decodes `frame.image` if it was read from a compressed_image_topic, returning the plain image
 // the pipeline consumes. Meant to be called right before that -- one frame at a time, as it is

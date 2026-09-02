@@ -14,10 +14,12 @@
 
 // Offline evaluation runner for TrafficLightRecognition (this package's ROS-free core).
 //
-// Given a t4dataset directory it reads every (image, camera_info) pair out of the dataset's
-// rosbag, drives TrafficLightRecognition::run() over them frame by frame, and writes each run()
-// result to an output rosbag under production topic names -- no rclcpp::init, no executor, no
-// DDS anywhere in this file.
+// Given a t4dataset directory it processes one camera at a time: for each camera it reads that
+// camera's (image, camera_info) pairs out of the dataset's rosbag, drives a fresh
+// TrafficLightRecognition::run() over them frame by frame, and only then moves on to the next
+// camera (see run_recognition()) -- so memory stays proportional to one camera's frames rather
+// than every camera's combined. Every run() result is written to an output rosbag under
+// production topic names -- no rclcpp::init, no executor, no DDS anywhere in this file.
 //
 // This is a simplified port of autoware_traffic_light_component_test's
 // run_traffic_light_pipeline executable, restricted to the front-end (this package's core): the
@@ -55,7 +57,9 @@
 namespace
 {
 using autoware::traffic_light::TrafficLightRecognition;
+using autoware::traffic_light::TrafficLightRecognitionConfig;
 using autoware::traffic_light::TrafficLightRecognitionResult;
+using autoware::traffic_light::evaluation::CameraConfig;
 using autoware::traffic_light::evaluation::decode_frame_image;
 using autoware::traffic_light::evaluation::EvaluationConfig;
 using autoware::traffic_light::evaluation::Frame;
@@ -71,36 +75,59 @@ struct RecordedResult
   TrafficLightRecognitionResult result;
 };
 
-// Builds one TrafficLightRecognition per camera and drives it over `frames`, which already
-// interleaves every camera's frames in ascending stamp order. Frames that fail are logged to
-// stderr and skipped, exactly as the Node drops them.
-std::vector<RecordedResult> run_recognition(
-  const EvaluationConfig & config, const std::vector<Frame> & frames,
-  const autoware_map_msgs::msg::LaneletMapBin & map_msg, const tf2::BufferCore & tf_buffer)
+// Returns config.recognition with min/max_timestamp_offset overridden from `camera` -- the one
+// part of TrafficLightRecognitionConfig that legitimately differs per camera (see CameraConfig's
+// own comment in evaluation_common.hpp).
+TrafficLightRecognitionConfig recognition_config_for_camera(
+  const EvaluationConfig & config, const CameraConfig & camera)
 {
-  std::vector<std::unique_ptr<TrafficLightRecognition>> recognitions;
-  for (const auto & camera : config.cameras) {
-    auto recognition_config = config.recognition;
-    recognition_config.min_timestamp_offset = camera.min_timestamp_offset;
-    recognition_config.max_timestamp_offset = camera.max_timestamp_offset;
-    recognitions.push_back(
-      std::make_unique<TrafficLightRecognition>(recognition_config, map_msg, tf_buffer));
-  }
+  auto recognition_config = config.recognition;
+  recognition_config.min_timestamp_offset = camera.min_timestamp_offset;
+  recognition_config.max_timestamp_offset = camera.max_timestamp_offset;
+  return recognition_config;
+}
+
+// Loads the map and tf buffer, then drives one TrafficLightRecognition per camera, one camera at
+// a time: for each camera in turn, builds its recognition instance, loads only that camera's
+// frames from the bag (load_frames_for_camera()), runs them all, then lets those frames go out of
+// scope before moving on to the next camera. This keeps at most one camera's worth of
+// decoded/undecoded frames in memory at once, unlike buffering every camera's frames up front --
+// the front-end has no cross-camera state (unlike the stateful back-end fusion stage), so
+// processing cameras in sequence rather than in one globally stamp-interleaved pass changes
+// nothing about the results, only their memory footprint. Frames that fail are logged to stderr
+// and skipped, exactly as the Node drops them.
+std::vector<RecordedResult> run_recognition(const EvaluationConfig & config)
+{
+  const auto map_msg = autoware::traffic_light::evaluation::load_map(config);
+  // Must outlive every TrafficLightRecognition built from it (its constructor requires this).
+  const auto tf_buffer =
+    autoware::traffic_light::evaluation::load_transform_buffer(config.input_bag_path);
 
   std::vector<RecordedResult> recorded_results;
-  for (const auto & frame : frames) {
-    const auto image = decode_frame_image(frame);
-    if (!image) {
-      continue;
+  for (std::size_t camera_index = 0; camera_index < config.cameras.size(); ++camera_index) {
+    const auto & camera = config.cameras[camera_index];
+    TrafficLightRecognition recognition(
+      recognition_config_for_camera(config, camera), map_msg, *tf_buffer);
+
+    const auto frames =
+      autoware::traffic_light::evaluation::load_frames_for_camera(config, camera_index);
+    std::cerr << "loaded " << frames.size() << " frames for camera " << camera.ns << " from "
+              << config.input_bag_path << std::endl;
+
+    for (const auto & frame : frames) {
+      const auto image = decode_frame_image(frame);
+      if (!image) {
+        continue;
+      }
+      const auto result = recognition.run(*image, frame.camera_info);
+      if (!result) {
+        std::cerr << "camera " << camera.ns << " frame at "
+                  << rclcpp::Time(image->header.stamp).nanoseconds()
+                  << " failed: " << result.error() << std::endl;
+        continue;
+      }
+      recorded_results.push_back({camera_index, *result});
     }
-    const auto result = recognitions[frame.camera_index]->run(*image, frame.camera_info);
-    if (!result) {
-      std::cerr << "camera " << config.cameras[frame.camera_index].ns << " frame at "
-                << rclcpp::Time(image->header.stamp).nanoseconds() << " failed: " << result.error()
-                << std::endl;
-      continue;
-    }
-    recorded_results.push_back({frame.camera_index, *result});
   }
   return recorded_results;
 }
@@ -169,15 +196,7 @@ int main(int argc, char ** argv)
     const auto config = autoware::traffic_light::evaluation::load_evaluation_config(
       args.config_path, args.dataset_path);
 
-    const auto map_msg = autoware::traffic_light::evaluation::load_map(config);
-    // Must outlive every TrafficLightRecognition built from it (its constructor requires this).
-    const auto tf_buffer =
-      autoware::traffic_light::evaluation::load_transform_buffer(config.input_bag_path);
-    const auto frames = autoware::traffic_light::evaluation::load_frames(config);
-    std::cerr << "loaded " << frames.size() << " frames from " << config.input_bag_path
-              << std::endl;
-
-    const auto recorded_results = run_recognition(config, frames, map_msg, *tf_buffer);
+    const auto recorded_results = run_recognition(config);
     write_to_rosbag(config, args.output_bag_path, recorded_results);
     std::cerr << "wrote " << recorded_results.size() << " results to " << args.output_bag_path
               << std::endl;
