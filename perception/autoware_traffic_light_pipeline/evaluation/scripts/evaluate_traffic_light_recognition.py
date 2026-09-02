@@ -289,13 +289,27 @@ def list_dynamic_object_2d_from_msg(
 # --- summary ------------------------------------------------------------------------------------
 
 
+def format_distance_range(
+    distance_range: Any,
+) -> str:  # noqa: ANN401 (traffic_light_label.DistanceRange | None)
+    """Render a Criterion's distance filter as e.g. "10-20", "10-" (no upper bound), or "all"."""
+    if distance_range is None:
+        return "all"
+    lower, upper = distance_range
+    if upper >= sys.float_info.max:
+        return f"{lower:g}-"
+    return f"{lower:g}-{upper:g}"
+
+
 @dataclass
 class CriterionAggregate:
     name: str
     pass_rate: float
+    distance_range_str: str = "all"
     frames: int = 0
     passed: int = 0
     no_gt_no_obj: int = 0
+    num_gt: int = 0
     score_sum: float = 0.0
     tp: int = 0
     fp: int = 0
@@ -322,6 +336,8 @@ def write_summary(aggregates: list[CriterionAggregate], output_dir: Path) -> boo
         rows.append(
             {
                 "criterion": agg.name,
+                "distance_range[m]": agg.distance_range_str,
+                "num_gt": agg.num_gt,
                 "frames": agg.frames,
                 "no_gt_no_obj": agg.no_gt_no_obj,
                 "TP": agg.tp,
@@ -452,7 +468,14 @@ def main() -> int:  # noqa: C901, PLR0915
 
     skip_counter = 0
     num_frames = 0
-    aggregates = [CriterionAggregate(name=c.name, pass_rate=c.pass_rate) for c in criteria_list]
+    aggregates = [
+        CriterionAggregate(
+            name=c.name,
+            pass_rate=c.pass_rate,
+            distance_range_str=format_distance_range(c.distance_range),
+        )
+        for c in criteria_list
+    ]
     result_lines: list[dict] = []
 
     while reader.has_next():
@@ -497,6 +520,7 @@ def main() -> int:  # noqa: C901, PLR0915
         frame_line = {"frame_name": frame_result.frame_name, "unix_time": unix_time_us}
         for criterion, agg in zip(criteria_list, aggregates, strict=True):
             result, score, filtered_frame = criterion.criteria.get_result(frame_result)
+            agg.num_gt += filtered_frame.pass_fail_result.get_num_gt()
             if result is None:
                 agg.no_gt_no_obj += 1
                 frame_line[criterion.name] = {"NoGTNoObj": True}
