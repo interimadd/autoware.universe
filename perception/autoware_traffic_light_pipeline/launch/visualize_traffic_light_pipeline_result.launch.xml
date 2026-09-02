@@ -1,0 +1,256 @@
+<launch>
+  <!--
+    Visualizes a run_traffic_light_pipeline_evaluation result bag in RViz.
+
+    run_traffic_light_pipeline_evaluation itself never links rclcpp/DDS (evaluation/README.md:
+    "rclcpp::init / executor / DDS は一切使わず") and never touches RViz; this launch file is
+    purely a post-hoc viewer: it reuses production's own map and traffic-light-map-visualizer
+    nodes against a result bag played back with `ros2 bag play`. Ported from
+    autoware_component_test's visualize_traffic_light_pipeline_result.launch.xml (the equivalent
+    viewer for the Component Test harness's run_traffic_light_pipeline), with topic defaults
+    updated for this package's own evaluation config
+    (evaluation/config/x2_v4.4.evaluation.yaml, four cameras instead of two) and for
+    run_traffic_light_pipeline_evaluation's write_to_rosbag(), which only ever produces
+    camera_info/rois/traffic_signals topics named directly after that yaml, never any
+    intermediate stage.
+
+    It only understands the back_end's `fusion.output_topic` (an
+    autoware_perception_msgs/msg/TrafficLightGroupArray, keyed by traffic_light_group_id), via
+    production's own traffic_light_map_visualizer (bulb-colored SPHERE markers in the map frame).
+    Each camera's own `output_topics.rois`/`output_topics.traffic_signals` (a
+    tier4_perception_msgs/msg/TrafficLightRoiArray and TrafficLightArray, both keyed by
+    traffic_light_id) are visualized differently: fed into production's own
+    traffic_light_roi_visualizer alongside that camera's own (decompressed) input bag image, it
+    draws each selected ROI as a labeled rectangle directly on the camera image, exactly like
+    production's own debug/rois topic; the per-camera rviz Image displays below show that
+    annotated image instead of the raw camera feed.
+
+    Typical usage:
+      ros2 launch autoware_traffic_light_pipeline visualize_traffic_light_pipeline_result.launch.xml \
+        dataset_path:=<the same "dataset" directory passed to run_traffic_light_pipeline_evaluation> \
+        output_bag_path:=<the "output-bag" directory written by that run>
+    (or pass lanelet2_map_path/map_projector_info_path/input_bag_path individually instead of
+    dataset_path; see below. tl_state_topic and the per-camera topics default to
+    evaluation/config/x2_v4.4.evaluation.yaml's own topic names; override them if the
+    evaluation config used for the run differs.)
+  -->
+  <arg
+    name="dataset_path"
+    default=""
+    description="Optional: the same --dataset directory passed to run_traffic_light_pipeline_evaluation for this run. Derives lanelet2_map_path/map_projector_info_path/input_bag_path from it exactly like the evaluation tools' own --dataset handling (evaluation_common.hpp's fixed dataset layout): &lt;dataset_path&gt;/map/lanelet2_map.osm, &lt;dataset_path&gt;/map/map_projector_info.yaml, &lt;dataset_path&gt;/input_bag. Only used as a fallback for whichever of those three args is left at its own empty default -- pass any of them explicitly to override just that one path."
+  />
+  <arg
+    name="lanelet2_map_path"
+    default=""
+    description="Path to the lanelet2 map used for the run (evaluation config yaml's dataset map/lanelet2_map.osm). Needed to resolve each traffic_light_group_id to bulb positions/colors. Defaults to dataset_path's map/lanelet2_map.osm; one of the two must be set."
+  />
+  <arg
+    name="lanelet2_map_metadata_path"
+    default="''"
+    description="Substituted into autoware_map_loader's lanelet2_map_loader.param.yaml; leave default unless the run's map ships selected-map-loading metadata."
+  />
+  <arg
+    name="map_projector_info_path"
+    default=""
+    description="Path to the run's dataset map/map_projector_info.yaml. lanelet2_map_loader subscribes to /map/map_projector_info (transient_local) and never publishes the map until it receives one, so without this node the loader waits forever and everything downstream (vector map, its markers, and the traffic light markers) silently produces nothing. Defaults to dataset_path's map/map_projector_info.yaml; one of the two must be set."
+  />
+  <arg
+    name="tl_state_topic"
+    default="/perception/traffic_light_recognition/internal/traffic_signals"
+    description="Evaluation config yaml's fusion.output_topic for the run being visualized (x2_v4.4.evaluation.yaml's default shown here)."
+  />
+  <arg
+    name="output_bag_path"
+    default=""
+    description="Optional: the result bag written via run_traffic_light_pipeline_evaluation's --output-bag. If set, played back automatically (equivalent to running `ros2 bag play` yourself in another terminal)."
+  />
+  <arg
+    name="input_bag_path"
+    default=""
+    description="Optional: the evaluation config's dataset input_bag (the original sensor bag, not the result bag). Defaults to dataset_path's input_bag if dataset_path is set. run_traffic_light_pipeline_evaluation never records /tf/tf_static (it is ROS-runtime-independent and has no ego pose). If set (directly or via dataset_path), only this bag's /tf, /tf_static, and the per-camera input_bag_cameraN_* topics below are replayed, so RViz can resolve map -&gt; base_link and you can set the Views panel's Target Frame to base_link to have the camera follow the vehicle instead of guessing a fixed Focal Point in the (typically far-from-origin) MGRS map frame."
+  />
+  <!-- One arg per topic instead of a space-separated list: ros2 launch XML's executable action
+       tokenizes its cmd string on whitespace once, at parse time, before substitution, so a single
+       $(var ...) that resolves to "topicA topicB" becomes ONE argv element containing a literal
+       space, not two topic names; ros2 bag play's topic filter then silently matches nothing for
+       it. Each arg here is its own substitution, so each always lands as exactly one argv token no
+       matter what path/topic string it resolves to. -->
+  <arg
+    name="input_bag_camera4_image_topic"
+    default="/sensing/camera/camera4/image_raw/compressed"
+    description="Extra topic to replay from input_bag_path alongside /tf and /tf_static, so the raw camera footage the front-end SUT actually saw can be viewed side by side with the recognition result. Defaults to x2_v4.4.evaluation.yaml's camera4 (cameras[].compressed_image_topic); set to '' to skip, or replace for a different evaluation config."
+  />
+  <arg name="input_bag_camera4_camera_info_topic" default="/sensing/camera/camera4/camera_info" description="Same as input_bag_camera4_image_topic, for that camera's camera_info."/>
+  <arg name="input_bag_camera5_image_topic" default="/sensing/camera/camera5/image_raw/compressed" description="Same as input_bag_camera4_image_topic, for x2_v4.4.evaluation.yaml's camera5."/>
+  <arg name="input_bag_camera5_camera_info_topic" default="/sensing/camera/camera5/camera_info" description="Same as input_bag_camera4_image_topic, for that camera's camera_info."/>
+  <arg name="input_bag_camera6_image_topic" default="/sensing/camera/camera6/image_raw/compressed" description="Same as input_bag_camera4_image_topic, for x2_v4.4.evaluation.yaml's camera6."/>
+  <arg name="input_bag_camera6_camera_info_topic" default="/sensing/camera/camera6/camera_info" description="Same as input_bag_camera4_image_topic, for that camera's camera_info."/>
+  <arg name="input_bag_camera7_image_topic" default="/sensing/camera/camera7/image_raw/compressed" description="Same as input_bag_camera4_image_topic, for x2_v4.4.evaluation.yaml's camera7."/>
+  <arg name="input_bag_camera7_camera_info_topic" default="/sensing/camera/camera7/camera_info" description="Same as input_bag_camera4_image_topic, for that camera's camera_info."/>
+
+  <!-- Per-camera evaluation config yaml output_topics: traffic_light_roi_visualizer, below, needs
+       both of a camera's own rois (TrafficLightRoiArray) and traffic_signals (TrafficLightArray,
+       for the per-ROI classification label/color) to draw boxes; tl_state_topic above is the
+       back_end's fused output instead, keyed differently, and cannot be reused here. -->
+  <arg
+    name="camera4_rois_topic"
+    default="/perception/traffic_light_recognition/camera4/detection/rois"
+    description="Evaluation config yaml's cameras[camera4].output_topics.rois for the run being visualized."
+  />
+  <arg
+    name="camera4_traffic_signals_topic"
+    default="/perception/traffic_light_recognition/camera4/classification/traffic_signals"
+    description="Evaluation config yaml's cameras[camera4].output_topics.traffic_signals for the run being visualized."
+  />
+  <arg name="camera5_rois_topic" default="/perception/traffic_light_recognition/camera5/detection/rois" description="Same as camera4_rois_topic, for camera5."/>
+  <arg name="camera5_traffic_signals_topic" default="/perception/traffic_light_recognition/camera5/classification/traffic_signals" description="Same as camera4_traffic_signals_topic, for camera5."/>
+  <arg name="camera6_rois_topic" default="/perception/traffic_light_recognition/camera6/detection/rois" description="Same as camera4_rois_topic, for camera6."/>
+  <arg name="camera6_traffic_signals_topic" default="/perception/traffic_light_recognition/camera6/classification/traffic_signals" description="Same as camera4_traffic_signals_topic, for camera6."/>
+  <arg name="camera7_rois_topic" default="/perception/traffic_light_recognition/camera7/detection/rois" description="Same as camera4_rois_topic, for camera7."/>
+  <arg name="camera7_traffic_signals_topic" default="/perception/traffic_light_recognition/camera7/classification/traffic_signals" description="Same as camera4_traffic_signals_topic, for camera7."/>
+
+  <arg name="rviz" default="true" description="Whether to launch rviz2 with the bundled config."/>
+  <arg name="rviz_config" default="$(find-pkg-share autoware_traffic_light_pipeline)/rviz/traffic_light_pipeline_result.rviz"/>
+
+  <let name="vector_map_topic" value="/map/vector_map"/>
+  <let name="has_output_bag" value="$(eval &quot;'$(var output_bag_path)' != ''&quot;)"/>
+
+  <!-- Each of these three falls back to dataset_path's fixed dataset layout (mirroring
+       evaluation_common.hpp's own "dataset" handling) only when left at its own empty default; an
+       explicit value for the arg itself always wins. -->
+  <let name="lanelet2_map_path_effective" value="$(eval &quot;'$(var lanelet2_map_path)' or ('$(var dataset_path)/map/lanelet2_map.osm' if '$(var dataset_path)' else '')&quot;)"/>
+  <let name="map_projector_info_path_effective" value="$(eval &quot;'$(var map_projector_info_path)' or ('$(var dataset_path)/map/map_projector_info.yaml' if '$(var dataset_path)' else '')&quot;)"/>
+  <let name="input_bag_path_effective" value="$(eval &quot;'$(var input_bag_path)' or ('$(var dataset_path)/input_bag' if '$(var dataset_path)' else '')&quot;)"/>
+  <let name="has_input_bag" value="$(eval &quot;'$(var input_bag_path_effective)' != ''&quot;)"/>
+
+  <include file="$(find-pkg-share autoware_agnocast_wrapper)/launch/agnocast_env.launch.xml"/>
+
+  <!-- run_traffic_light_pipeline_evaluation never publishes /tf or /tf_static (it is ROS-runtime-
+       independent and has no localization stack), so without this, rviz's tf2 MessageFilter never
+       considers the "map" frame to exist and silently drops every Marker/MarkerArray below:
+       nothing renders even though the topics are actually being received. This registers "map" as
+       an existing frame via a harmless identity transform to an unused child frame. -->
+  <node pkg="tf2_ros" exec="static_transform_publisher" name="map_frame_anchor" args="--frame-id map --child-frame-id evaluation_result"/>
+
+  <!-- lanelet2_map_loader (below) blocks on this until it arrives. -->
+  <include file="$(find-pkg-share autoware_map_projection_loader)/launch/map_projection_loader.launch.xml">
+    <arg name="map_projector_info_path" value="$(var map_projector_info_path_effective)"/>
+    <arg name="lanelet2_map_path" value="$(var lanelet2_map_path_effective)"/>
+  </include>
+
+  <!-- Publishes the run's lanelet2 map as a LaneletMapBin (transient_local), so the marker nodes
+       below can start after the bag has already begun playing. Only the loader node itself is
+       started here (not autoware_map_loader/launch/lanelet2_map_loader.launch.xml's bundled
+       map_hash_generator, which additionally requires tier4_external_api_msgs, a package this
+       Component Test workspace does not build and does not need for visualization). -->
+  <node pkg="autoware_map_loader" exec="autoware_lanelet2_map_loader" name="lanelet2_map_loader" output="both">
+    <env name="LD_PRELOAD" value="$(var ld_preload_value)"/>
+    <remap from="output/lanelet2_map" to="$(var vector_map_topic)"/>
+    <param from="$(find-pkg-share autoware_map_loader)/config/lanelet2_map_loader.param.yaml" allow_substs="true"/>
+  </node>
+
+  <!-- Lanelet boundaries as a MarkerArray, for spatial context around the traffic lights. -->
+  <include file="$(find-pkg-share autoware_lanelet2_map_visualizer)/launch/lanelet2_map_visualizer.launch.xml">
+    <arg name="lanelet2_map_topic" value="$(var vector_map_topic)"/>
+    <arg name="lanelet2_map_marker_topic" value="/map/vector_map_marker"/>
+  </include>
+
+  <!-- The pipeline's own fused recognition result as bulb-colored SPHERE markers in the map
+       frame; production's own visualizer, unmodified. -->
+  <include file="$(find-pkg-share autoware_traffic_light_visualization)/launch/traffic_light_map_visualizer.launch.xml">
+    <arg name="input/tl_state" value="$(var tl_state_topic)"/>
+    <arg name="input/vector_map" value="$(var vector_map_topic)"/>
+    <arg name="output/traffic_light" value="$(var tl_state_topic)/markers"/>
+  </include>
+
+  <!-- Per-camera ROI-on-image view, production's own nodes, unmodified:
+       1. image_transport_decompressor decodes that camera's own input_bag_cameraN_image_topic
+          (a CompressedImage) into a raw sensor_msgs/Image: traffic_light_roi_visualizer's
+          image_transport::SubscriberFilter below always subscribes with the "raw" transport (its
+          own node.cpp), so it cannot consume the compressed topic directly.
+       2. traffic_light_roi_visualizer message_filters::sync's that raw image against the result
+          bag's cameraN_rois_topic/cameraN_traffic_signals_topic (this camera's own
+          output_topics from the evaluation config yaml) by exact header stamp and draws each
+          selected ROI as a labeled, classification-colored rectangle, publishing the annotated
+          image below to each camera's own /debug/rois, exactly production's own debug/rois topic.
+       use_high_accuracy_detection is off: that mode additionally overlays the pre-selection rough
+       ROIs, which run_traffic_light_pipeline_evaluation's own result (an intermediate stage) does
+       not record (see the file header comment above). Both only run if there is an input bag to
+       decompress a camera image from in the first place. -->
+  <group if="$(var has_input_bag)">
+    <push-ros-namespace namespace="camera4"/>
+    <include file="$(find-pkg-share autoware_image_transport_decompressor)/launch/image_transport_decompressor.launch.xml">
+      <arg name="camera_id" value="_camera4"/>
+      <arg name="input_topic_name" value="$(var input_bag_camera4_image_topic)"/>
+      <arg name="output_topic_name" value="/evaluation_result/camera4/image_raw"/>
+    </include>
+    <include file="$(find-pkg-share autoware_traffic_light_visualization)/launch/traffic_light_roi_visualizer.launch.xml">
+      <arg name="input/image" value="/evaluation_result/camera4/image_raw"/>
+      <arg name="input/rois" value="$(var camera4_rois_topic)"/>
+      <arg name="input/traffic_signals" value="$(var camera4_traffic_signals_topic)"/>
+      <arg name="output/image" value="/evaluation_result/camera4/debug/rois"/>
+      <arg name="use_high_accuracy_detection" value="false"/>
+    </include>
+  </group>
+  <group if="$(var has_input_bag)">
+    <push-ros-namespace namespace="camera5"/>
+    <include file="$(find-pkg-share autoware_image_transport_decompressor)/launch/image_transport_decompressor.launch.xml">
+      <arg name="camera_id" value="_camera5"/>
+      <arg name="input_topic_name" value="$(var input_bag_camera5_image_topic)"/>
+      <arg name="output_topic_name" value="/evaluation_result/camera5/image_raw"/>
+    </include>
+    <include file="$(find-pkg-share autoware_traffic_light_visualization)/launch/traffic_light_roi_visualizer.launch.xml">
+      <arg name="input/image" value="/evaluation_result/camera5/image_raw"/>
+      <arg name="input/rois" value="$(var camera5_rois_topic)"/>
+      <arg name="input/traffic_signals" value="$(var camera5_traffic_signals_topic)"/>
+      <arg name="output/image" value="/evaluation_result/camera5/debug/rois"/>
+      <arg name="use_high_accuracy_detection" value="false"/>
+    </include>
+  </group>
+  <group if="$(var has_input_bag)">
+    <push-ros-namespace namespace="camera6"/>
+    <include file="$(find-pkg-share autoware_image_transport_decompressor)/launch/image_transport_decompressor.launch.xml">
+      <arg name="camera_id" value="_camera6"/>
+      <arg name="input_topic_name" value="$(var input_bag_camera6_image_topic)"/>
+      <arg name="output_topic_name" value="/evaluation_result/camera6/image_raw"/>
+    </include>
+    <include file="$(find-pkg-share autoware_traffic_light_visualization)/launch/traffic_light_roi_visualizer.launch.xml">
+      <arg name="input/image" value="/evaluation_result/camera6/image_raw"/>
+      <arg name="input/rois" value="$(var camera6_rois_topic)"/>
+      <arg name="input/traffic_signals" value="$(var camera6_traffic_signals_topic)"/>
+      <arg name="output/image" value="/evaluation_result/camera6/debug/rois"/>
+      <arg name="use_high_accuracy_detection" value="false"/>
+    </include>
+  </group>
+  <group if="$(var has_input_bag)">
+    <push-ros-namespace namespace="camera7"/>
+    <include file="$(find-pkg-share autoware_image_transport_decompressor)/launch/image_transport_decompressor.launch.xml">
+      <arg name="camera_id" value="_camera7"/>
+      <arg name="input_topic_name" value="$(var input_bag_camera7_image_topic)"/>
+      <arg name="output_topic_name" value="/evaluation_result/camera7/image_raw"/>
+    </include>
+    <include file="$(find-pkg-share autoware_traffic_light_visualization)/launch/traffic_light_roi_visualizer.launch.xml">
+      <arg name="input/image" value="/evaluation_result/camera7/image_raw"/>
+      <arg name="input/rois" value="$(var camera7_rois_topic)"/>
+      <arg name="input/traffic_signals" value="$(var camera7_traffic_signals_topic)"/>
+      <arg name="output/image" value="/evaluation_result/camera7/debug/rois"/>
+      <arg name="use_high_accuracy_detection" value="false"/>
+    </include>
+  </group>
+
+  <node pkg="rviz2" exec="rviz2" name="rviz2" args="-d $(var rviz_config)" if="$(var rviz)"/>
+
+  <!-- Only /tf, /tf_static, and the input_bag_cameraN_* topics are replayed from the input bag: it
+       also contains lidar/radar/can data the pipeline was fed, which this launch file has no use
+       for. Both this and the result bag below are started independently and replay each message
+       using its own recorded stamp, so as long as they are started at roughly the same
+       wall-clock moment they stay in step with each other; ros2 bag play in this ROS distribution
+       cannot take more than one bag_path itself. -->
+  <executable
+    cmd="ros2 bag play $(var input_bag_path_effective) --topics /tf /tf_static $(var input_bag_camera4_image_topic) $(var input_bag_camera4_camera_info_topic) $(var input_bag_camera5_image_topic) $(var input_bag_camera5_camera_info_topic) $(var input_bag_camera6_image_topic) $(var input_bag_camera6_camera_info_topic) $(var input_bag_camera7_image_topic) $(var input_bag_camera7_camera_info_topic)"
+    if="$(var has_input_bag)"
+    output="screen"
+  />
+
+  <executable cmd="ros2 bag play $(var output_bag_path)" if="$(var has_output_bag)" output="screen"/>
+</launch>

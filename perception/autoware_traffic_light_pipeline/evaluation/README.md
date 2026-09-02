@@ -86,6 +86,23 @@ ros2 run autoware_traffic_light_pipeline run_traffic_light_pipeline_evaluation \
 model_path / label_path 類は環境依存の絶対パスなので、手元の `autoware_data` に合わせて
 書き換えてください。
 
+## rvizでの可視化
+
+`run_traffic_light_pipeline_evaluation` の出力 bag は、`../launch/visualize_traffic_light_pipeline_result.launch.xml`
+（`autoware_component_test` の同名ランチファイルの移植）で rviz 可視化できます。
+
+```bash
+ros2 launch autoware_traffic_light_pipeline visualize_traffic_light_pipeline_result.launch.xml \
+  dataset_path:=<t4dataset のパス（run_traffic_light_pipeline_evaluation --dataset と同じもの）> \
+  output_bag_path:=<run_traffic_light_pipeline_evaluation --output-bag で書き出した bag>
+```
+
+後段の融合結果（`fusion.output_topic`）を地図上のバルブ色 SPHERE マーカーとして、各カメラの
+`output_topics.rois` / `output_topics.traffic_signals` を入力 bag の画像に重ねたラベル付き矩形
+として表示します。`tl_state_topic` / `cameraN_rois_topic` / `cameraN_traffic_signals_topic` の
+デフォルト値は `config/x2_v4.4.evaluation.yaml` のトピック名に合わせてあるので、別の評価用 yaml
+を使った場合は該当する引数を上書きしてください。詳細はランチファイル自身のコメントを参照してください。
+
 ## 精度評価
 
 上記 2 本の実行ファイルは出力 bag を書き出すだけで、精度評価そのものは行いません。
