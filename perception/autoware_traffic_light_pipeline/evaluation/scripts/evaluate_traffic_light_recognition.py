@@ -392,7 +392,7 @@ def run_evaluation(
     dataset_path: Path,
     result_bag_path: Path,
     output_dir: Path,
-) -> int:  # noqa: C901, PLR0915
+) -> bool:  # noqa: C901, PLR0915
     dataset_path = dataset_path.expanduser().resolve()
     output_dir = output_dir.expanduser().resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -548,20 +548,20 @@ def run_evaluation(
             "timestamps "
             "(see evaluate_result_implementation_plan.md's failure-pattern section).",
         )
-        return 1
+        return False
 
-    overall_pass = write_summary(aggregates, output_dir)
-    return 0 if overall_pass else 1
+    return write_summary(aggregates, output_dir)
 
 
 def main() -> int:
     args = parse_args()
-    return run_evaluation(
+    overall_pass = run_evaluation(
         scenario_path=args.scenario,
         dataset_path=args.dataset,
         result_bag_path=args.result_bag,
         output_dir=args.output_dir,
     )
+    return 0 if overall_pass else 1
 
 
 if __name__ == "__main__":
