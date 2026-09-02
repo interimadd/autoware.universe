@@ -387,16 +387,18 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def run_evaluation(
-    scenario_path: Path,
-    dataset_path: Path,
-    result_bag_path: Path,
-    output_dir: Path,
-) -> bool:  # noqa: C901, PLR0915
-    dataset_path = dataset_path.expanduser().resolve()
-    output_dir = output_dir.expanduser().resolve()
-    output_dir.mkdir(parents=True, exist_ok=True)
+@dataclass
+class ScenarioConfig:
+    evaluation: dict
+    topic: str
+    criteria_list: list[Criterion]
+    evaluation_config_dict: dict
+    camera_type: str
+    max_distance: float
 
+
+def load_scenario_config(scenario_path: Path) -> ScenarioConfig:
+    """Parse the DLR scenario yaml into everything run_evaluation needs to configure itself."""
     with scenario_path.expanduser().open() as f:
         scenario = yaml.safe_load(f)
     evaluation = scenario["Evaluation"]
@@ -409,20 +411,32 @@ def run_evaluation(
         error_msg = "Scenario has no degradation_topic"
         raise ValueError(error_msg)
 
-    criteria_list = load_criteria(scenario)
-
     p_cfg = evaluation["PerceptionEvaluationConfig"]
     evaluation_config_dict = dict(p_cfg["evaluation_config_dict"])
     # Required by perception_eval to select the TrafficLightLabel converter (see
     # evaluate_result_implementation_plan.md's Phase 2 step 2).
     evaluation_config_dict["label_prefix"] = "traffic_light"
     evaluation_config_dict["count_label_number"] = True
-    camera_type = p_cfg["camera_type"]
-    max_distance = float(evaluation_config_dict["max_distance"])
 
-    # perception_eval-only imports (criteria.py already imports it at module scope, so this does
-    # not gain --help-without-the-overlay -- it's just grouped here with the rest of the
-    # perception_eval setup for readability). See evaluation/scripts/README.md.
+    return ScenarioConfig(
+        evaluation=evaluation,
+        topic=topic,
+        criteria_list=load_criteria(scenario),
+        evaluation_config_dict=evaluation_config_dict,
+        camera_type=p_cfg["camera_type"],
+        max_distance=float(evaluation_config_dict["max_distance"]),
+    )
+
+
+def build_perception_eval_manager(
+    config: ScenarioConfig, dataset_path: Path, output_dir: Path
+):  # noqa: ANN201
+    """Construct the perception_eval manager plus the critical/pass-fail filter configs.
+
+    perception_eval-only imports (criteria.py already imports it at module scope, so this does
+    not gain --help-without-the-overlay -- it's just grouped here with the rest of the
+    perception_eval setup for readability). See evaluation/scripts/README.md.
+    """
     from perception_eval.config import PerceptionEvaluationConfig
     from perception_eval.evaluation.result.perception_frame_config import CriticalObjectFilterConfig
     from perception_eval.evaluation.result.perception_frame_config import PerceptionPassFailConfig
@@ -430,27 +444,25 @@ def run_evaluation(
 
     eval_config = PerceptionEvaluationConfig(
         dataset_paths=[dataset_path.as_posix()],
-        frame_id=camera_type,
+        frame_id=config.camera_type,
         result_root_directory=(output_dir / "perception_eval_log").as_posix(),
-        evaluation_config_dict=evaluation_config_dict,
+        evaluation_config_dict=config.evaluation_config_dict,
         load_raw_data=False,
     )
     critical_cfg = CriticalObjectFilterConfig(
         evaluator_config=eval_config,
-        target_labels=evaluation["CriticalObjectFilterConfig"]["target_labels"],
+        target_labels=config.evaluation["CriticalObjectFilterConfig"]["target_labels"],
     )
     pass_fail_cfg = PerceptionPassFailConfig(
         evaluator_config=eval_config,
-        target_labels=evaluation["PerceptionPassFailConfig"]["target_labels"],
+        target_labels=config.evaluation["PerceptionPassFailConfig"]["target_labels"],
     )
     manager = PerceptionEvaluationManager(evaluation_config=eval_config)
+    return manager, critical_cfg, pass_fail_cfg
 
-    lanelet_map = load_lanelet2_map(dataset_path)
-    tf_buffer = load_transform_buffer(dataset_path / "input_bag")
 
-    from autoware_perception_msgs.msg import TrafficLightGroupArray
-    from perception_eval.common.schema import FrameID
-    from rclpy.serialization import deserialize_message
+def open_result_bag_reader(result_bag_path: Path, topic: str):  # noqa: ANN201
+    """Open result_bag_path filtered to `topic`, ready for read_next()."""
     import rosbag2_py
 
     reader = rosbag2_py.SequentialReader()
@@ -463,6 +475,101 @@ def run_evaluation(
         ),
     )
     reader.set_filter(rosbag2_py.StorageFilter(topics=[topic]))
+    return reader
+
+
+def process_frame(
+    msg,  # noqa: ANN001 (TrafficLightGroupArray)
+    *,
+    tf_buffer,  # noqa: ANN001
+    lanelet_map,  # noqa: ANN001
+    manager,  # noqa: ANN001
+    critical_cfg,  # noqa: ANN001
+    pass_fail_cfg,  # noqa: ANN001
+    max_distance: float,
+    criteria_list: list[Criterion],
+    aggregates: list[CriterionAggregate],
+) -> dict | None:
+    """Evaluate one TrafficLightGroupArray message, updating `aggregates` in place.
+
+    Returns the result.jsonl line for this frame, or None if it had to be skipped (no ground
+    truth frame within DLR's matching window).
+    """
+    from perception_eval.common.schema import FrameID
+
+    map_to_baselink = lookup_map_to_baselink(tf_buffer, msg.stamp)
+    unix_time_us = unix_time_microsec_from_ros_timestamp(msg.stamp)
+
+    gt_frame = manager.get_ground_truth_now_frame(unix_time_us)
+    if gt_frame is None:
+        return None
+
+    cam2map = gt_frame.transforms[(FrameID.CAM_TRAFFIC_LIGHT, FrameID.MAP)]
+    ego_position_map = map_to_baselink.transform.translation
+
+    for obj in gt_frame.objects:
+        x, y, z, _dist = get_traffic_light_pos_and_dist(
+            lanelet_map, obj.uuid, ego_position_map, max_distance
+        )
+        obj.set_position(cam2map.inv().transform((x, y, z)))
+
+    estimated_objects = list_dynamic_object_2d_from_msg(
+        lanelet_map,
+        manager.evaluator_config.label_converter,
+        unix_time_us,
+        msg.traffic_light_groups,
+        cam2map,
+        ego_position_map,
+    )
+
+    frame_result = manager.add_frame_result(
+        unix_time=unix_time_us,
+        ground_truth_now_frame=gt_frame,
+        estimated_objects=estimated_objects,
+        critical_object_filter_config=critical_cfg,
+        frame_pass_fail_config=pass_fail_cfg,
+    )
+
+    frame_line = {"frame_name": frame_result.frame_name, "unix_time": unix_time_us}
+    for criterion, agg in zip(criteria_list, aggregates, strict=True):
+        result, score, filtered_frame = criterion.criteria.get_result(frame_result)
+        agg.num_gt += filtered_frame.pass_fail_result.get_num_gt()
+        if result is None:
+            agg.no_gt_no_obj += 1
+            frame_line[criterion.name] = {"NoGTNoObj": True}
+            continue
+        agg.frames += 1
+        agg.score_sum += score
+        agg.tp += len(filtered_frame.pass_fail_result.tp_object_results)
+        agg.fp += len(filtered_frame.pass_fail_result.fp_object_results)
+        agg.fn += len(filtered_frame.pass_fail_result.fn_objects)
+        if result.is_success():
+            agg.passed += 1
+        frame_line[criterion.name] = {"result": str(result), "score": score}
+    return frame_line
+
+
+def run_evaluation(
+    scenario_path: Path,
+    dataset_path: Path,
+    result_bag_path: Path,
+    output_dir: Path,
+) -> bool:
+    dataset_path = dataset_path.expanduser().resolve()
+    output_dir = output_dir.expanduser().resolve()
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    config = load_scenario_config(scenario_path)
+    manager, critical_cfg, pass_fail_cfg = build_perception_eval_manager(
+        config, dataset_path, output_dir
+    )
+
+    lanelet_map = load_lanelet2_map(dataset_path)
+    tf_buffer = load_transform_buffer(dataset_path / "input_bag")
+    reader = open_result_bag_reader(result_bag_path, config.topic)
+
+    from autoware_perception_msgs.msg import TrafficLightGroupArray
+    from rclpy.serialization import deserialize_message
 
     skip_counter = 0
     num_frames = 0
@@ -472,7 +579,7 @@ def run_evaluation(
             pass_rate=c.pass_rate,
             distance_range_str=format_distance_range(c.distance_range),
         )
-        for c in criteria_list
+        for c in config.criteria_list
     ]
     result_lines: list[dict] = []
 
@@ -480,57 +587,21 @@ def run_evaluation(
         _, data, _ = reader.read_next()
         msg: TrafficLightGroupArray = deserialize_message(data, TrafficLightGroupArray)
 
-        map_to_baselink = lookup_map_to_baselink(tf_buffer, msg.stamp)
-        unix_time_us = unix_time_microsec_from_ros_timestamp(msg.stamp)
-
-        gt_frame = manager.get_ground_truth_now_frame(unix_time_us)
-        if gt_frame is None:
+        frame_line = process_frame(
+            msg,
+            tf_buffer=tf_buffer,
+            lanelet_map=lanelet_map,
+            manager=manager,
+            critical_cfg=critical_cfg,
+            pass_fail_cfg=pass_fail_cfg,
+            max_distance=config.max_distance,
+            criteria_list=config.criteria_list,
+            aggregates=aggregates,
+        )
+        if frame_line is None:
             skip_counter += 1
             continue
-
-        cam2map = gt_frame.transforms[(FrameID.CAM_TRAFFIC_LIGHT, FrameID.MAP)]
-        ego_position_map = map_to_baselink.transform.translation
-
-        for obj in gt_frame.objects:
-            x, y, z, _dist = get_traffic_light_pos_and_dist(
-                lanelet_map, obj.uuid, ego_position_map, max_distance
-            )
-            obj.set_position(cam2map.inv().transform((x, y, z)))
-
-        estimated_objects = list_dynamic_object_2d_from_msg(
-            lanelet_map,
-            manager.evaluator_config.label_converter,
-            unix_time_us,
-            msg.traffic_light_groups,
-            cam2map,
-            ego_position_map,
-        )
-
-        frame_result = manager.add_frame_result(
-            unix_time=unix_time_us,
-            ground_truth_now_frame=gt_frame,
-            estimated_objects=estimated_objects,
-            critical_object_filter_config=critical_cfg,
-            frame_pass_fail_config=pass_fail_cfg,
-        )
         num_frames += 1
-
-        frame_line = {"frame_name": frame_result.frame_name, "unix_time": unix_time_us}
-        for criterion, agg in zip(criteria_list, aggregates, strict=True):
-            result, score, filtered_frame = criterion.criteria.get_result(frame_result)
-            agg.num_gt += filtered_frame.pass_fail_result.get_num_gt()
-            if result is None:
-                agg.no_gt_no_obj += 1
-                frame_line[criterion.name] = {"NoGTNoObj": True}
-                continue
-            agg.frames += 1
-            agg.score_sum += score
-            agg.tp += len(filtered_frame.pass_fail_result.tp_object_results)
-            agg.fp += len(filtered_frame.pass_fail_result.fp_object_results)
-            agg.fn += len(filtered_frame.pass_fail_result.fn_objects)
-            if result.is_success():
-                agg.passed += 1
-            frame_line[criterion.name] = {"result": str(result), "score": score}
         result_lines.append(frame_line)
 
     with (output_dir / "result.jsonl").open("w") as f:
