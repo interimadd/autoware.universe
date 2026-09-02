@@ -26,6 +26,7 @@
 
 #include <autoware_map_msgs/msg/lanelet_map_bin.hpp>
 #include <sensor_msgs/msg/camera_info.hpp>
+#include <sensor_msgs/msg/compressed_image.hpp>
 #include <sensor_msgs/msg/image.hpp>
 
 #include <tf2/buffer_core.h>
@@ -35,6 +36,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <variant>
 #include <vector>
 
 namespace autoware::traffic_light::evaluation
@@ -108,19 +110,30 @@ EvaluationConfig load_evaluation_config(
 // ---------------------------------------------------------------------------------
 
 // One exact-stamp matched (image, camera_info) pair, tagged with the camera it came from -- the
-// same input unit the Node's message_filters::ExactTime sync hands to run().
+// same input unit the Node's message_filters::ExactTime sync hands to run(). `image` is kept in
+// whatever form it was read from the bag (compressed or not): decoding every frame up front, for
+// the whole bag, is what made load_frames() the dominant memory cost of an evaluation run. Call
+// decode_frame_image() instead, right before handing the frame to the pipeline.
 struct Frame
 {
   std::size_t camera_index;
-  sensor_msgs::msg::Image image;
+  std::variant<sensor_msgs::msg::Image, sensor_msgs::msg::CompressedImage> image;
   sensor_msgs::msg::CameraInfo camera_info;
 };
 
 // Reads every configured camera's image/camera_info topics out of `config.input_bag_path` and
 // returns the exact-stamp matched frames, in ascending (stamp, camera_index) order. Messages with
 // no same-stamp partner on the other topic are dropped -- the same policy
-// message_filters::ExactTime enforces in production.
+// message_filters::ExactTime enforces in production. Compressed images are not decoded here; see
+// Frame and decode_frame_image().
 std::vector<Frame> load_frames(const EvaluationConfig & config);
+
+// Decodes `frame.image` if it was read from a compressed_image_topic, returning the plain image
+// the pipeline consumes. Meant to be called right before that -- one frame at a time, as it is
+// about to be processed -- rather than while load_frames() buffers the whole bag, so at most one
+// decoded image is ever held in memory. Returns std::nullopt (after logging to stderr) if the
+// image fails to decompress.
+std::optional<sensor_msgs::msg::Image> decode_frame_image(const Frame & frame);
 
 // The Node gets its map->camera transforms from a tf2_ros::TransformListener; offline they all
 // come from the dataset bag instead. The cache time is deliberately far longer than

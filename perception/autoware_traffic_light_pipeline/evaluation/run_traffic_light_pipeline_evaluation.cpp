@@ -68,6 +68,7 @@ using autoware::traffic_light::TrafficLightFusion;
 using autoware::traffic_light::TrafficLightFusionConfig;
 using autoware::traffic_light::TrafficLightRecognition;
 using autoware::traffic_light::TrafficLightRecognitionResult;
+using autoware::traffic_light::evaluation::decode_frame_image;
 using autoware::traffic_light::evaluation::EvaluationConfig;
 using autoware::traffic_light::evaluation::Frame;
 using autoware::traffic_light::evaluation::require;
@@ -156,11 +157,15 @@ std::vector<RecordedFrameResult> run_recognition(
 
   std::vector<RecordedFrameResult> recorded_results;
   for (const auto & frame : frames) {
-    const auto result = recognitions[frame.camera_index]->run(frame.image, frame.camera_info);
+    const auto image = decode_frame_image(frame);
+    if (!image) {
+      continue;
+    }
+    const auto result = recognitions[frame.camera_index]->run(*image, frame.camera_info);
     if (!result) {
       std::cerr << "camera " << config.cameras[frame.camera_index].ns << " frame at "
-                << rclcpp::Time(frame.image.header.stamp).nanoseconds()
-                << " failed: " << result.error() << std::endl;
+                << rclcpp::Time(image->header.stamp).nanoseconds() << " failed: " << result.error()
+                << std::endl;
       continue;
     }
     recorded_results.push_back({frame.camera_index, frame.camera_info, *result});

@@ -214,10 +214,12 @@ std::unordered_map<std::string, TopicRole> build_topic_roles(
 }
 
 // One camera's images/camera_infos keyed by header stamp while the bag is being read, so pairing
-// does not depend on how the two topics happened to interleave on disk.
+// does not depend on how the two topics happened to interleave on disk. Images are kept as read
+// (compressed or not) -- see Frame.
 struct CameraBuffers
 {
-  std::map<int64_t, sensor_msgs::msg::Image> images_by_stamp;
+  std::map<int64_t, std::variant<sensor_msgs::msg::Image, sensor_msgs::msg::CompressedImage>>
+    images_by_stamp;
   std::map<int64_t, sensor_msgs::msg::CameraInfo> camera_infos_by_stamp;
 };
 
@@ -250,16 +252,9 @@ std::vector<Frame> load_frames(const EvaluationConfig & config)
       camera_buffers.camera_infos_by_stamp.emplace(
         stamp_nanoseconds(camera_info.header), std::move(camera_info));
     } else if (role.image_is_compressed) {
-      const auto compressed = deserialize<sensor_msgs::msg::CompressedImage>(bag_message);
-      auto decoded =
-        autoware::image_transport_decompressor::decompress_image(compressed, "default");
-      if (!decoded) {
-        std::cerr << "failed to decompress image at " << stamp_nanoseconds(compressed.header)
-                  << ": " << decoded.error() << std::endl;
-        continue;
-      }
+      auto compressed = deserialize<sensor_msgs::msg::CompressedImage>(bag_message);
       camera_buffers.images_by_stamp.emplace(
-        stamp_nanoseconds(decoded->header), std::move(*decoded));
+        stamp_nanoseconds(compressed.header), std::move(compressed));
     } else {
       auto image = deserialize<sensor_msgs::msg::Image>(bag_message);
       camera_buffers.images_by_stamp.emplace(stamp_nanoseconds(image.header), std::move(image));
@@ -286,6 +281,21 @@ std::vector<Frame> load_frames(const EvaluationConfig & config)
     frames.push_back(std::move(frame));
   }
   return frames;
+}
+
+std::optional<sensor_msgs::msg::Image> decode_frame_image(const Frame & frame)
+{
+  if (const auto * image = std::get_if<sensor_msgs::msg::Image>(&frame.image)) {
+    return *image;
+  }
+  const auto & compressed = std::get<sensor_msgs::msg::CompressedImage>(frame.image);
+  auto decoded = autoware::image_transport_decompressor::decompress_image(compressed, "default");
+  if (!decoded) {
+    std::cerr << "failed to decompress image at " << stamp_nanoseconds(compressed.header) << ": "
+              << decoded.error() << std::endl;
+    return std::nullopt;
+  }
+  return std::move(*decoded);
 }
 
 std::unique_ptr<tf2::BufferCore> load_transform_buffer(const std::string & bag_path)
